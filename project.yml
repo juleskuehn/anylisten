@@ -10,9 +10,12 @@ targets:
     info:
       path: AnyListen/Info.plist
       properties:
-        NSMicrophoneUsageDescription: "AnyListen needs microphone access to route audio to your hearing aids."
+        NSMicrophoneUsageDescription: "AnyListen needs microphone access to route audio to your selected output."
         UIBackgroundModes: [audio]
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.anylisten.AnyListen
       DEVELOPMENT_TEAM: 2UD3JL69WU
       GENERATE_INFOPLIST_FILE: false
+      TARGETED_DEVICE_FAMILY: 1
