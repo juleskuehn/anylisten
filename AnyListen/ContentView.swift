@@ -68,9 +68,10 @@ struct ContentView: View {
                 isWarning: audioManager.outputMayCauseFeedback
             ) {
                 AudioRoutePicker()
-                    .frame(width: 118, height: 44)
+                    .frame(width: 52, height: 44)
                     .background(Color.white.opacity(0.12))
                     .cornerRadius(12)
+                    .accessibilityLabel("Select output")
             }
             
             if audioManager.outputMayCauseFeedback {

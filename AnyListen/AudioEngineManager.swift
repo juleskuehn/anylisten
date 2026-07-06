@@ -298,9 +298,9 @@ class AudioEngineManager: ObservableObject {
     private func readableOutputName(_ output: AVAudioSessionPortDescription) -> String {
         switch output.portType {
         case .builtInSpeaker:
-            return "\(output.portName) (speaker)"
+            return "iPhone Speaker"
         case .builtInReceiver:
-            return "\(output.portName) (receiver)"
+            return "iPhone Earpiece"
         case .bluetoothA2DP, .bluetoothHFP, .bluetoothLE:
             return "\(output.portName) (Bluetooth)"
         case .headphones:
