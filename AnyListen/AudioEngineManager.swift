@@ -52,8 +52,8 @@ final class AudioEngineManager: ObservableObject {
     /// USB devices finish enumerating asynchronously, seconds after
     /// activation, without firing a usable notification. Poll this often…
     private static let enumerationPollIntervalSeconds: TimeInterval = 0.5
-    /// …for this many ticks after activation/start (0.5 × 12 = 6 s).
-    private static let enumerationPollMaxTicks = 12
+    /// …for this many ticks after activation/start (0.5 × 20 = 10 s).
+    private static let enumerationPollMaxTicks = 20
 
     /// Audio I/O hint for monitoring latency. Honored on most devices
     /// for .playAndRecord; the direct connection means this ~5 ms buffer
@@ -363,12 +363,20 @@ final class AudioEngineManager: ObservableObject {
             sessionIsConfigured = true
         }
 
-        try applyPreferredInputIfNeeded()
-
+        // Activate BEFORE applying the preferred input — critical
+        // ordering. applyPreferredInputIfNeeded THROWS when the persisted
+        // selection hasn't enumerated yet; if activation came after it,
+        // that throw would skip activation entirely, and since USB
+        // enumeration REQUIRES an active session, the device would stay
+        // "— missing" forever. (This was the cold-launch USB bug: the
+        // output picker only "fixed" it because presenting
+        // AVRoutePickerView makes the SYSTEM activate the session.)
         if !sessionIsActive {
             try session.setActive(true, options: .notifyOthersOnDeactivation)
             sessionIsActive = true
         }
+
+        try applyPreferredInputIfNeeded()
     }
 
     /// Launch path for when we do NOT have mic permission yet: set the
@@ -481,6 +489,13 @@ final class AudioEngineManager: ObservableObject {
         ) { [weak self] timer in
             guard let self else { timer.invalidate(); return }
             ticks += 1
+
+            // Defensive: if activation hasn't stuck (launch-time setActive
+            // can race early app-lifecycle timing), retry it here.
+            if !self.sessionIsActive,
+               self.microphonePermissionStatus == .authorized {
+                try? self.ensureSessionConfigured()
+            }
 
             let pinned = (try? self.applyPreferredInputIfNeeded()) ?? false
             self.updateAudioRoutes()
@@ -669,9 +684,11 @@ final class AudioEngineManager: ObservableObject {
 
     private func handleDidBecomeActive() {
         checkMicrophonePermission()
-        if microphonePermissionStatus == .authorized && !sessionIsActive {
-            try? ensureSessionConfigured()
-            _ = try? applyPreferredInputIfNeeded()
+        if microphonePermissionStatus == .authorized {
+            if !sessionIsActive {
+                try? ensureSessionConfigured()
+                _ = try? applyPreferredInputIfNeeded()
+            }
             startEnumerationPolling()
         }
         updateAudioRoutes()

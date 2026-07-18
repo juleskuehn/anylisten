@@ -403,3 +403,28 @@ the UI, and re-pins the preferred input — late USB devices self-heal.
 `.defaultToSpeaker` hides the receiver from the native route picker.
 Speaker / AirPods / hearing aids remain. Revisit only if a user
 explicitly needs earpiece output.
+
+---
+
+## Bug fixes (round 4 — cold-launch USB still missing)
+
+**Symptom:** even with polling, a persisted USB mic showed "— missing"
+after cold launch and never self-healed. Curious workaround: merely
+opening and CLOSING the output route picker (no change) made the USB
+mic appear and become the current input.
+
+**Root cause — ordering bug in `ensureSessionConfigured`:** the old
+sequence was `setCategory → applyPreferredInputIfNeeded → setActive`.
+With a persisted USB selection, `applyPreferredInputIfNeeded` THREW
+(device not yet enumerated) BEFORE `setActive` ran — so the session
+was never activated at launch, and USB enumeration (which requires an
+active session) never started. The polling timer only called
+`applyPreferredInputIfNeeded`, never retried activation. Presenting
+AVRoutePickerView makes the *system* activate the session — hence the
+"magic fix" on picker dismissal, followed by our route-change handler
+pinning the newly-enumerated device.
+
+**Fix:** activate BEFORE applying the preferred input in
+`ensureSessionConfigured`; polling ticks also retry activation if it
+hasn't stuck; polling extended to 10 s and also runs on every
+foregrounding.

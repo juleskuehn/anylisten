@@ -175,11 +175,21 @@ hardware (RØDE Wireless ME RX) the device appeared in `availableInputs`
 notification. Without compensation, a persisted USB selection shows
 "— missing" at launch until the user pokes the menu.
 
-`startEnumerationPolling()` runs a 0.5 s × 12-tick (6 s) timer after
-launch-activation, after every start, and after re-activation on
-foregrounding. Each tick re-queries `availableInputs`, refreshes the
-UI, and re-pins the preferred input if a better one appeared — so a
-late-enumerating USB mic self-heals automatically.
+`startEnumerationPolling()` runs a 0.5 s × 20-tick (10 s) timer after
+launch-activation, after every start, and after foregrounding. Each
+tick re-queries `availableInputs`, refreshes the UI, re-pins the
+preferred input if a better one appeared, and retries session
+activation if it hasn't stuck — so a late-enumerating USB mic
+self-heals automatically.
+
+**Ordering pitfall (bit us once):** `ensureSessionConfigured` must
+activate BEFORE calling `applyPreferredInputIfNeeded`. The latter
+throws while the persisted selection is still unenumerated; if
+activation followed it, the throw would skip activation — and since
+enumeration requires an ACTIVE session, the device would never
+appear. (Tells: merely opening/closing the route picker "fixed" it,
+because presenting AVRoutePickerView makes the SYSTEM activate the
+session.)
 
 ## Permission flow
 
