@@ -10,6 +10,7 @@ struct AudioInputDevice: Identifiable, Equatable {
 
 class AudioEngineManager: ObservableObject {
     private var audioEngine: AVAudioEngine?
+    private var playerNode: AVAudioPlayerNode?
     private let selectedInputIDKey = "AnyListen.selectedInputID"
     private let selectedInputNameKey = "AnyListen.selectedInputName"
     private var isApplyingAudioSessionChange = false
@@ -33,7 +34,6 @@ class AudioEngineManager: ObservableObject {
         selectedInputName = UserDefaults.standard.string(forKey: selectedInputNameKey)
         checkMicrophonePermission()
         setupNotifications()
-        try? prepareAudioSessionForRouting()
         updateAudioRoutes()
     }
     
@@ -96,7 +96,12 @@ class AudioEngineManager: ObservableObject {
     }
     
     func selectInput(_ input: AudioInputDevice) {
-        stopForSettingsChange()
+        let wasRunning = isRunning
+        if wasRunning {
+            teardownAudioEngine()
+            isRunning = false
+        }
+        
         selectedInputID = input.id
         selectedInputName = input.name
         selectedInputIsMissing = false
@@ -105,16 +110,25 @@ class AudioEngineManager: ObservableObject {
         errorMessage = nil
         
         do {
-            try prepareAudioSessionForRouting()
-            try applyPreferredInputIfNeeded()
+            try configureAudioSessionForCurrentSelection()
         } catch {
             errorMessage = "Could not select input: \(error.localizedDescription)"
         }
         updateAudioRoutes()
+        
+        // Auto-restart if we were listening before
+        if wasRunning {
+            start()
+        }
     }
     
     func clearSelectedInput() {
-        stopForSettingsChange()
+        let wasRunning = isRunning
+        if wasRunning {
+            teardownAudioEngine()
+            isRunning = false
+        }
+        
         selectedInputID = nil
         selectedInputName = nil
         selectedInputIsMissing = false
@@ -123,12 +137,15 @@ class AudioEngineManager: ObservableObject {
         errorMessage = nil
         
         do {
-            try prepareAudioSessionForRouting()
-            try AVAudioSession.sharedInstance().setPreferredInput(nil)
+            try configureAudioSessionForCurrentSelection()
         } catch {
             errorMessage = "Could not reset input: \(error.localizedDescription)"
         }
         updateAudioRoutes()
+        
+        if wasRunning {
+            start()
+        }
     }
     
     func start() {
@@ -136,11 +153,17 @@ class AudioEngineManager: ObservableObject {
         errorMessage = nil
         
         do {
-            // Starting the audio session itself can emit route/configuration notifications.
-            // Ignore that short startup burst so Listen does not immediately stop itself.
-            ignoreRouteChangesUntil = Date().addingTimeInterval(1.0)
-            let shouldForceSpeakerOutput = AVAudioSession.sharedInstance().currentRoute.outputs.contains { $0.portType == .builtInSpeaker }
-            try configureAudioSession(forceSpeakerOutput: shouldForceSpeakerOutput)
+            ignoreRouteChangesUntil = Date().addingTimeInterval(2.0)
+            try configureAudioSessionForCurrentSelection()
+            
+            // Verify the selected input is actually the active input
+            let session = AVAudioSession.sharedInstance()
+            let activeInput = session.currentRoute.inputs.first
+            if let sid = selectedInputID, let activeInput = activeInput, activeInput.uid != sid {
+                // Selected input is not the active one – try once more
+                try applyPreferredInputIfNeeded(forceActive: true)
+            }
+            
             try setupAudioEngine()
             
             guard let audioEngine = audioEngine else {
@@ -148,9 +171,11 @@ class AudioEngineManager: ObservableObject {
             }
             
             try audioEngine.start()
-            if shouldForceSpeakerOutput {
-                try applyOutputOverride(forceSpeakerOutput: true)
-            }
+            playerNode?.play()
+            
+            // Apply output override for built-in outputs only
+            try applyOutputOverrideIfNeeded()
+            
             isRunning = true
             updateAudioRoutes()
         } catch {
@@ -172,38 +197,69 @@ class AudioEngineManager: ObservableObject {
         if isRunning {
             teardownAudioEngine()
             isRunning = false
-            errorMessage = "Listening stopped because audio settings changed."
         }
+        // Don't set a blanket errorMessage here — callers should set context-appropriate messages
     }
     
-    private func prepareAudioSessionForRouting() throws {
+    /// Compute category options based on the selected input type.
+    /// When the user selects a non-Bluetooth input (USB, built-in, etc.),
+    /// we drop `.allowBluetooth` to keep AirPods in output-only A2DP mode.
+    /// This prevents AirPods from hijacking the input route away from USB.
+    private var sessionCategoryOptions: AVAudioSession.CategoryOptions {
+        guard let sid = selectedInputID else {
+            return [.allowBluetooth, .allowBluetoothA2DP]
+        }
+        // Check if the selected input is a Bluetooth device
+        let session = AVAudioSession.sharedInstance()
+        if let port = (session.availableInputs ?? []).first(where: { $0.uid == sid }) {
+            let isBluetooth: Bool = {
+                switch port.portType {
+                case .bluetoothHFP, .bluetoothLE, .bluetoothA2DP: return true
+                default: return false
+                }
+            }()
+            if !isBluetooth {
+                // Non-Bluetooth input (USB, built-in, etc.):
+                // Keep A2DP for output but drop HFP so AirPods stay output-only
+                return [.allowBluetoothA2DP]
+            }
+        }
+        return [.allowBluetooth, .allowBluetoothA2DP]
+    }
+    
+    /// Full audio session configuration for the current input/output selection.
+    /// Sets preferred input BEFORE activating the session so iOS routes correctly.
+    private func configureAudioSessionForCurrentSelection() throws {
         let session = AVAudioSession.sharedInstance()
         isApplyingAudioSessionChange = true
         defer { isApplyingAudioSessionChange = false }
         
-        try session.setCategory(
-            .playAndRecord,
-            mode: .default,
-            options: [.allowBluetooth, .allowBluetoothA2DP]
-        )
+        // Deactivate first for a clean slate
+        try? session.setActive(false, options: .notifyOthersOnDeactivation)
+        
+        try session.setCategory(.playAndRecord, mode: .default, options: sessionCategoryOptions)
+        try session.setPreferredIOBufferDuration(0.005)
+        
+        // Set preferred input BEFORE activation — iOS is more likely to honor it
+        try applyPreferredInputIfNeeded(forceActive: false)
+        
         try session.setActive(true, options: .notifyOthersOnDeactivation)
     }
     
-    private func configureAudioSession(forceSpeakerOutput: Bool = false) throws {
-        try prepareAudioSessionForRouting()
-        try applyPreferredInputIfNeeded()
-        try applyOutputOverride(forceSpeakerOutput: forceSpeakerOutput)
-    }
-    
-    private func applyOutputOverride(forceSpeakerOutput: Bool) throws {
+    private func applyOutputOverrideIfNeeded() throws {
         let session = AVAudioSession.sharedInstance()
-        isApplyingAudioSessionChange = true
-        defer { isApplyingAudioSessionChange = false }
-        
-        try session.overrideOutputAudioPort(forceSpeakerOutput ? .speaker : .none)
+        let outputs = session.currentRoute.outputs
+        let shouldOverride = outputs.contains { output in
+            output.portType == .builtInSpeaker || output.portType == .builtInReceiver
+        }
+        if shouldOverride {
+            isApplyingAudioSessionChange = true
+            defer { isApplyingAudioSessionChange = false }
+            try session.overrideOutputAudioPort(.speaker)
+        }
     }
     
-    private func applyPreferredInputIfNeeded() throws {
+    private func applyPreferredInputIfNeeded(forceActive: Bool) throws {
         let session = AVAudioSession.sharedInstance()
         let inputs = session.availableInputs ?? []
         
@@ -225,6 +281,11 @@ class AudioEngineManager: ObservableObject {
         
         selectedInputIsMissing = false
         try session.setPreferredInput(selectedPort)
+        
+        // If forceActive, also set the session active again to apply the change
+        if forceActive {
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        }
     }
     
     private func setupAudioEngine() throws {
@@ -240,12 +301,26 @@ class AudioEngineManager: ObservableObject {
             throw NSError(domain: "AnyListen", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid audio input format"])
         }
         
-        engine.connect(inputNode, to: engine.mainMixerNode, format: inputFormat)
+        // Use tap-based loopback – more reliable than direct connection
+        let player = AVAudioPlayerNode()
+        engine.attach(player)
+        engine.connect(player, to: engine.mainMixerNode, format: inputFormat)
+
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak player] buffer, _ in
+            guard let player = player, player.isPlaying else { return }
+            player.scheduleBuffer(buffer)
+        }
+
+        self.playerNode = player
         self.audioEngine = engine
     }
     
     private func teardownAudioEngine() {
-        audioEngine?.stop()
+        if let engine = audioEngine {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+        playerNode = nil
         audioEngine = nil
     }
     
@@ -330,18 +405,16 @@ class AudioEngineManager: ObservableObject {
         
         switch reason {
         case .oldDeviceUnavailable:
-            if isRunning {
-                stopForSettingsChange()
-            }
             if selectedInputIsMissing {
-                errorMessage = "Selected input is missing. Reconnect it or choose another input."
+                if isRunning {
+                    stopForSettingsChange()
+                    errorMessage = "Selected input was disconnected."
+                }
             }
-        case .newDeviceAvailable, .routeConfigurationChange, .override:
-            if isRunning {
-                stopForSettingsChange()
-            }
+        case .newDeviceAvailable:
+            // Refresh inputs so the menu includes the new device
+            updateAudioRoutes()
         case .categoryChange:
-            // Expected when AnyListen starts/configures its own audio session. Do not stop.
             break
         default:
             break
