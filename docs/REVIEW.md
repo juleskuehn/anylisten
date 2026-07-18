@@ -238,3 +238,168 @@ for "missing"-state messaging.
 6. L1 — localization (if shipping wider than en).
 7. L3 + L7 — minimal test suite + logging hooks.
 8. The rest as polish.
+
+---
+
+## Bug fixes (round 2 — revised after on-device testing)
+
+> NOTE: an earlier version of this section claimed category priming
+> alone fixes USB enumeration and that an auto-"reapply" of the engine
+> on route changes was the right policy. On-device testing proved both
+> wrong. The corrected behavior is documented here and implemented in
+> `AudioEngineManager.swift`.
+
+### Bug A — USB mic missing from `availableInputs` on first launch
+
+**Symptom:** Cold-launch with a USB mic plugged in. Picker shows only
+"iPhone Microphone". Selecting "Automatic" makes the USB mic appear
+(but Automatic initially resolves to the iPhone mic).
+
+**Cause (corrected):** `availableInputs` does NOT fully enumerate USB
+audio devices until the session is **activated** (`setActive(true)`) —
+setting the category alone is insufficient. Activation requires mic
+permission to be already granted.
+
+**Fix:** At launch, if permission is `.authorized`, we run the full
+session configuration **including activation** (`ensureSessionConfigured`).
+If permission is undetermined we only prime the category (no launch-time
+prompt) and activation happens inside the LISTEN → permission-grant flow.
+Additionally: (a) Automatic mode ranks inputs external-first (USB/headset/
+line-in > built-in > Bluetooth) and actively pins the best one via
+`setPreferredInput`; (b) a one-shot "post-start settle" re-check 0.8 s
+after starting upgrades the input if USB enumeration landed late.
+
+### Bug B — AirPods HFP "fake" input in Automatic mode
+
+**Symptom:** "Automatic" mode lists AirPods as an available input
+option and even shows them as selected, but the actual audio is
+captured from the iPhone built-in mic. Picking the AirPods HFP item
+appears to select it but the route stays on iPhone mic.
+
+**Cause:** When `selectedInputID == nil`, the old code set category
+options to `[.allowBluetooth, .allowBluetoothA2DP]`. With HFP allowed,
+iOS will quietly promote a paired AirPods-in-call-mode or hearing
+aid for input — but our `currentInputName` reads from
+`currentRoute.inputs.first`, which often reports "iPhone Microphone"
+even though the picker shows AirPods.
+
+**Fix:** Default category options are now `[.allowBluetoothA2DP]`
+**only**. HFP (`.allowBluetooth`) is opt-in: it's added only when the
+user explicitly selects a Bluetooth port as their input. Effect:
+AirPods/HA start as **output-only** in our app's session. iOS won't
+ever auto-promote them to input, so the menu no longer misadvertises
+them as an input.
+
+### Bug C — Output routing: speaker unreachable, picker lies, stale button
+
+**Symptoms (multiple, related):**
+1. The native route picker sometimes shows "iPhone Speaker" selected,
+   but audio NEVER comes out of the speaker — only the earpiece or
+   AirPods produce sound. App text correctly shows "iPhone Earpiece".
+2. Switching output mid-listen left the big button stuck on
+   "STOP LISTENING" while audio was actually dead.
+3. Selecting "iPhone Earpiece" snapped back to "iPhone Speaker".
+
+**Causes (corrected):**
+- `.playAndRecord` without `.defaultToSpeaker` defaults built-in
+  output to the RECEIVER (earpiece). The old
+  `overrideOutputAudioPort(.speaker)` was compensating for this.
+- Session deactivation WIPES output overrides. The round-1 "reapply
+  engine on every route change" policy did a full deactivate →
+  reconfigure → reactivate on each route-change notification, which
+  destroyed the user's route-picker choice every time they made one —
+  that's why Speaker could never stick.
+- `handleRouteChange()` only reacted to `.oldDeviceUnavailable`, so
+  output changes left a dead engine with `isRunning == true`.
+
+**Fixes:**
+- `.defaultToSpeaker` is now a permanent category option: built-in
+  output defaults to the loud speaker, and the native picker's
+  Speaker/Earpiece toggle works via the system override.
+- The session is NEVER deactivated while the app is alive (except as
+  a fallback when a category change refuses to apply while active).
+  Route-picker output choices therefore persist across stop/start.
+- The round-1 auto-"reapply" policy is REPLACED with a stop-policy
+  per user decision: any real route change while running stops
+  listening with a short message ("Audio route changed. Tap LISTEN to
+  resume."). "Real" is detected via a route signature
+  (`inputUID|outputUIDs`) comparison, not reason codes, which are too
+  noisy to trust.
+- New interruption handling: phone calls / Siri / other audio apps
+  interrupting us now stop listening cleanly instead of leaving a
+  stuck ON button. We never auto-resume after an interruption.
+- Engine config-change notifications (format shifts) rebuild ONLY the
+  engine — never the session — so output overrides survive.
+
+### Other improvements shipped alongside
+
+- Magic numbers are named constants: `routeChangeSilenceWindowSeconds`,
+  `postStartSettleDelaySeconds`, `preferredIOBufferDurationSeconds`,
+  `tapBufferSize`.
+- `selectedInputName` storage no longer drives display when the
+  selected port is reachable — the live name from `availableInputs`
+  wins. The stored name is only used for the "…missing" suffix.
+- `UIApplication.didBecomeActiveNotification` re-checks permission
+  (covers Settings changes) and re-activates the session if an
+  interruption tore it down.
+- `project.yml` flipped `TARGETED_DEVICE_FAMILY: 1` → `"1,2"` (iPad).
+
+### Known trade-off to verify
+
+The session now activates AT LAUNCH when mic permission is already
+granted (needed for USB enumeration). This means launching the app
+takes audio focus (other apps' audio pauses), and the session stays
+active while the app is alive. The mic-recording privacy indicator
+should only appear while the engine is actually capturing (i.e.
+while listening), but this should be verified on-device.
+
+---
+
+## Bug fixes (round 3 — latency, freeze, async enumeration)
+
+### Latency vs Live Listen (~25% extra) — FIXED
+
+**Symptom:** finger-snap test: sound → ~100 ms (AirPods BT floor) →
+Live Listen; our app added ~25 ms on top.
+
+**Cause:** the tap-based loopback paid a 1024-frame capture buffer
+(21.3 ms @ 48 kHz) before any audio moved, plus AVAudioPlayerNode
+scheduling jitter.
+
+**Fix:** the tap and player node are deleted. The input node is
+connected directly to `mainMixerNode`
+(`engine.connect(inputNode, to: mainMixerNode, format:)`). App-added
+latency is now essentially the ~5 ms I/O buffer hint. Side benefit:
+no `removeTap`-while-running and no real-time-thread callback at all.
+
+### Freeze when switching input while listening — FIXED
+
+**Symptom:** changing input (iPhone mic → USB mic) mid-listen wedged
+the app; force-quit required.
+
+**Cause:** teardown → session reconfigure → engine rebuild ran
+synchronously on the main thread while a USB route switch was in
+flight — a mediaserverd deadlock class.
+
+**Fix:** in-app input changes now STOP first (per the user's own
+policy request — input and output changes behave identically), and
+the session is only reconfigured while no engine is alive.
+
+### USB still "— missing" at cold launch — FIXED
+
+**Symptom:** even with launch-time activation, a persisted USB mic
+showed "— missing"; selecting "Automatic" (seconds later) found it.
+
+**Cause (now confirmed on-device):** USB enumeration after activation
+is asynchronous **by seconds** and fires no route-change notification
+when it completes.
+
+**Fix:** 0.5 s × 12-tick polling after activation/start/foregrounding
+(`startEnumerationPolling`). Each tick re-queries inputs, refreshes
+the UI, and re-pins the preferred input — late USB devices self-heal.
+
+### Earpiece no longer in the picker — ACCEPTED TRADE-OFF
+
+`.defaultToSpeaker` hides the receiver from the native route picker.
+Speaker / AirPods / hearing aids remain. Revisit only if a user
+explicitly needs earpiece output.

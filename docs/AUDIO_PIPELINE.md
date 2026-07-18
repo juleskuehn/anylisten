@@ -7,32 +7,41 @@ can only say so much.
 
 ## Audio session lifecycle
 
-A single helper, `configureAudioSessionForCurrentSelection()`, centralizes
-session work:
+Session work is centralized in `ensureSessionConfigured()`, which is
+deliberately *lazy* — each step runs only when needed:
 
 ```swift
-try? session.setActive(false, options: .notifyOthersOnDeactivation)   // 1
-try session.setCategory(.playAndRecord, mode: .default,                 // 2
-                        options: sessionCategoryOptions)
-try session.setPreferredIOBufferDuration(0.005)                        // 3
-try applyPreferredInputIfNeeded(forceActive: false)                    // 4
-try session.setActive(true, options: .notifyOthersOnDeactivation)      // 5
+if category-or-options changed (or never configured) {
+    try session.setCategory(.playAndRecord, mode: .default,
+                            options: sessionCategoryOptions)   // (fallback: deactivate → set)
+    try session.setPreferredIOBufferDuration(0.005)
+}
+try applyPreferredInputIfNeeded()          // pin selected / automatic-best input
+if !sessionIsActive {
+    try session.setActive(true)            // activation = what enumerates USB devices
+}
 ```
 
-Steps 1–5 in plain English:
+Key properties:
 
-1. **Deactivate first.** Some category/preferred-input changes are ignored
-   while the session is active on older iOS versions.
-2. **Set the category** *before* activation. `sessionCategoryOptions` is
-   derived from the selection — see *Bluetooth handling* below.
-3. **5 ms target buffer** for low-latency monitoring.
-4. **Set the preferred input** before activation. iOS is more likely to
-   honor `setPreferredInput` if it's done before the session goes active.
-5. **Activate.**
+1. **No routine deactivation.** Deactivating the session wipes output
+   overrides (the user's route-picker choices) and de-enumerates USB.
+   The session is configured once and kept active for the app's
+   lifetime; only a *category options* change (Bluetooth-ness of the
+   selected input flipping) can trigger a re-set, with a
+   deactivate → set → reactivate fallback if iOS refuses the
+   while-active transition.
+2. **5 ms target I/O buffer** for low-latency monitoring.
+3. **Preferred input is pinned explicitly** — in Automatic mode, the
+   best-ranked available input (external mics beat built-in), not
+   `nil`-and-pray.
+4. **Activation is what makes USB devices enumerate** into
+   `availableInputs` (and it needs mic permission). Hence: activate at
+   launch if permission is already granted.
 
 The function is wrapped in `isApplyingAudioSessionChange = true … defer {
-… = false }`, which `handleRouteChange` checks to ignore self-induced
-notifications.
+… = false }` plus a 2.5 s silence window, which `handleRouteChange`
+checks to avoid reacting to self-induced notifications.
 
 ## Bluetooth: the clever bit
 
@@ -42,32 +51,28 @@ of **both** the input *and* the output. If your user wants to feed audio
 from a USB interface into a Bluetooth speaker, iOS will, by default, hand
 the input to the BT device too — which means you lose USB.
 
-The app sidesteps this by stripping `.allowBluetooth` from the
-session-category options whenever the user picks a **non-Bluetooth**
-input:
+The app sidesteps this by making `.allowBluetooth` (HFP) **opt-in
+only** — it is included solely when the user has explicitly selected a
+Bluetooth port as their input. In every other case (including
+Automatic), the options are `[.allowBluetoothA2DP, .defaultToSpeaker]`:
+A2DP keeps AirPods / hearing aids available as **output**, HFP keeps
+its hands off the **input**:
 
 ```swift
 private var sessionCategoryOptions: AVAudioSession.CategoryOptions {
-    guard let sid = selectedInputID else {
-        return [.allowBluetooth, .allowBluetoothA2DP]
+    if let sid = selectedInputID,
+       let port = AVAudioSession.sharedInstance().availableInputs?.first(where: { $0.uid == sid }),
+       Self.isBluetoothPort(port.portType) {
+        return [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker]
     }
-    let session = AVAudioSession.sharedInstance()
-    if let port = (session.availableInputs ?? []).first(where: { $0.uid == sid }) {
-        let isBluetooth: Bool = {
-            switch port.portType {
-            case .bluetoothHFP, .bluetoothLE, .bluetoothA2DP: return true
-            default: return false
-            }
-        }()
-        if !isBluetooth {
-            // USB / built-in / headset / line-in: keep A2DP for output,
-            // drop HFP so AirPods stay output-only.
-            return [.allowBluetoothA2DP]
-        }
-    }
-    return [.allowBluetooth, .allowBluetoothA2DP]
+    return [.allowBluetoothA2DP, .defaultToSpeaker]
 }
 ```
+
+(The original implementation returned `[.allowBluetooth,
+.allowBluetoothA2DP]` for Automatic mode, which is what let iOS
+silently promote an AirPods HFP mic over USB while the UI reported the
+built-in mic — the "fake AirPods input" bug.)
 
 Trade-offs:
 
@@ -82,58 +87,99 @@ Trade-offs:
 This is the keystone of the app's "feel like routing an input to an
 output" experience. If you ever refactor this, do it conservatively.
 
-## Engine wiring
+## Engine wiring (direct connection, low latency)
 
 ```swift
 let engine = AVAudioEngine()
 let inputNode = engine.inputNode
-let inputFormat = inputNode.inputFormat(forBus: 0)
-
-let player = AVAudioPlayerNode()
-engine.attach(player)
-engine.connect(player, to: engine.mainMixerNode, format: inputFormat)
-
-inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak player] buffer, _ in
-    guard let player = player, player.isPlaying else { return }
-    player.scheduleBuffer(buffer)
-}
+let format = inputNode.inputFormat(forBus: 0)
+engine.connect(inputNode, to: engine.mainMixerNode, format: format)
 ```
 
-Notes:
+That is the entire audio path. The input node is connected **directly**
+to the main mixer; the mixer handles any sample-rate conversion to the
+output route (e.g. USB mic 48 kHz → AirPods A2DP).
 
-- **Tap on the engine's `inputNode`** rather than wiring via `connect`.
-  `connect` would make the engine assume output-side routing; a tap gives
-  full control over what gets buffered and when.
-- **Format comes from `inputNode.inputFormat(forBus: 0)`**, not from a
-  hard-coded sample rate. This keeps us compatible with every device that
-  iOS exposes.
-- **Buffer size 1024 at the engine level**, separate from the session's
-  5 ms I/O hint. These are tied: a 5 ms @ 48 kHz is ~240 frames; the tap
-  sees multiples of that.
-- **Player is re-attached on every restart.** We could keep the engine
-  alive across start/stop cycles to make toggling snappier. See
-  [`REVIEW.md`](REVIEW.md) for that note.
+### Why not tap + player? Latency.
 
-## Output override
+The original loopback used `installTap(bufferSize: 1024)` +
+`AVAudioPlayerNode.scheduleBuffer`. On-device measurement showed it
+audibly slower than Live Listen (~25% extra latency on a finger-snap):
 
-`applyOutputOverrideIfNeeded()` runs after the engine starts:
+- A 1024-frame tap buffer at 48 kHz is **21.3 ms** of capture-side
+  buffering before any audio moves at all.
+- The player node adds scheduling jitter on top (buffers queue between
+  the tap's delivery cadence and the player's render cadence).
 
-```swift
-let outputs = session.currentRoute.outputs
-let shouldOverride = outputs.contains { output in
-    output.portType == .builtInSpeaker || output.portType == .builtInReceiver
-}
-if shouldOverride {
-    try session.overrideOutputAudioPort(.speaker)
-}
-```
+The direct connection costs roughly **one I/O buffer (~5 ms)** — the
+session's `setPreferredIOBufferDuration(0.005)` hint is essentially the
+whole app-added latency now. Bonus removals: no `removeTap`-while-
+running (a freeze candidate) and no real-time-thread callback at all.
 
-Without this, when the only output is the receiver (top earpiece), iOS
-silently routes output there and the user hears nothing useful.
-`overrideOutputAudioPort(.speaker)` forces the bottom loudspeaker.
+Trade-off: we lose per-buffer access (no level metering / processing
+without re-adding a tap). A future gain control can still use
+`mainMixerNode.outputVolume` — free, per-sample, zero added latency.
 
-This is harmless for headphones/Bluetooth/USB — the override only fires
-when the only output *is* the built-in one.
+- **Format comes from `inputNode.inputFormat(forBus: 0)`**, never
+  hard-coded — keeps every device iOS exposes compatible.
+- The engine is rebuilt (never the session) when the input format may
+  have changed — see route-change handling below.
+
+## Built-in output: `.defaultToSpeaker`, never an override
+
+`.playAndRecord` **without** `.defaultToSpeaker` routes built-in output
+to the *receiver* (the quiet top earpiece) by default. The first
+iteration of this app compensated with
+`overrideOutputAudioPort(.speaker)`, which caused two real bugs:
+
+1. It snapped deliberate earpiece selections back to the speaker.
+2. Session deactivation **wipes output overrides** — and the engine
+   was being rebuilt (with a full deactivate → reactivate cycle) on
+   route changes, so every output choice the user made in the native
+   route picker was silently destroyed.
+
+Current approach:
+
+- `.defaultToSpeaker` is a permanent category option, so built-in
+  output defaults to the loud speaker — the sane default for routing
+  an external mic.
+- `overrideOutputAudioPort` is **never called**. The native
+  `AVRoutePickerView` owns output selection, including the
+  Speaker ↔ Earpiece toggle, and its choices persist because
+- the session is **never deactivated while the app is alive** (only as
+  a fallback when a category change refuses to apply while active).
+
+## Session activation & USB enumeration
+
+USB audio devices do **not** appear in `availableInputs` until the
+session is **activated** (`setActive(true)`) — setting the category
+alone is not enough, and activation requires mic permission to be
+already granted. Consequences:
+
+- At launch, if permission is `.authorized`, the app activates the
+  session immediately (`ensureSessionConfigured`). This takes audio
+  focus (other apps pause) — acceptable for a mic router.
+- If permission is undetermined, only the category is primed (no
+  launch-time prompt); activation happens inside the LISTEN →
+  permission-grant flow.
+- Once activated, the session stays active for the app's lifetime so
+  USB stays enumerated and route-picker output choices persist.
+- A `UIApplication.didBecomeActiveNotification` handler re-activates
+  if an interruption (phone call, Siri) tore the session down.
+
+### Enumeration is asynchronous — poll
+
+Activation *starts* USB enumeration; it does not finish it. On tested
+hardware (RØDE Wireless ME RX) the device appeared in `availableInputs`
+**seconds** after activation, and its arrival fired **no** route-change
+notification. Without compensation, a persisted USB selection shows
+"— missing" at launch until the user pokes the menu.
+
+`startEnumerationPolling()` runs a 0.5 s × 12-tick (6 s) timer after
+launch-activation, after every start, and after re-activation on
+foregrounding. Each tick re-queries `availableInputs`, refreshes the
+UI, and re-pins the preferred input if a better one appeared — so a
+late-enumerating USB mic self-heals automatically.
 
 ## Permission flow
 
@@ -153,46 +199,55 @@ they're coordinated by AVFoundation so it doesn't matter functionally.
 
 ## Notification handling
 
-Three publishers, all `.receive(on: .main)`:
+Five publishers, all `.receive(on: .main)`:
 
 | Notification | Handler | Effect |
 |--------------|---------|--------|
-| `AVAudioSession.routeChangeNotification` | `handleRouteChange` | Refreshes inputs; auto-stops if the selected input disappears. Suppressed for 2 s after `start()` to avoid reacting to its own session reconfiguration. |
-| `AVAudioSession.mediaServicesWereResetNotification` | `handleMediaServicesReset` | Tear everything down, set a "system reset" error. |
-| `AVAudioEngineConfigurationChange` | `handleEngineConfigurationChange` | Refresh inputs only. *Does not* stop the engine — the comment in code spells out why: "Engine configuration notifications can be emitted during normal startup." |
+| `AVAudioSession.routeChangeNotification` | `handleRouteChange` | Refresh UI; re-pick automatic input; **stop listening** if the route signature actually changed while running, or if the selected input vanished. |
+| `AVAudioSession.mediaServicesWereResetNotification` | `handleMediaServicesReset` | Tear down, clear session flags, set "system reset" message. |
+| `AVAudioEngineConfigurationChange` | `handleEngineConfigurationChange` | While running (and not silenced): rebuild the **engine only** — never the session — so format shifts don't destroy output overrides. |
+| `AVAudioSession.interruptionNotification` | `handleInterruption` | `.began` → stop listening cleanly (phone call, Siri). `.ended` → mark session inactive; never auto-resume. |
+| `UIApplication.didBecomeActiveNotification` | `handleDidBecomeActive` | Re-check permission (Settings changes), re-activate if needed, refresh routes. |
 
-### The 2-second debounce
+### Route changes: stop-policy via route signature
 
-`start()` sets `ignoreRouteChangesUntil = Date().addingTimeInterval(2.0)`.
-The basic idea: re-activating the session can emit
-`categoryChange`/`overrideChange` route-change notifications, and iOS
-sometimes emits `oldDeviceUnavailable` when the input / output flips
-between logical and physical ports even though nothing actually
-disconnected. Without the debounce, those would race against our
-deliberate state.
+Reason codes (`oldDeviceUnavailable`, `.override`, …) are too noisy to
+trust — iOS fires them for self-induced changes, logical-vs-physical
+port flips, and category chatter. Instead, the handler compares a
+**route signature** (`currentInputUID | outputUIDs`) from before and
+after the notification:
 
-Two seconds is empirically enough on tested devices but is a magic
-number. If you ever see flapping behavior (listen toggles off
-immediately after starting), increase it.
+- **Selected input vanished** (while running) → stop with "Selected
+  input was disconnected." This check runs *even inside the silence
+  window* — a yanked USB mic is never ignored.
+- **Signature changed** (while running) → stop with "Audio route
+  changed. Tap LISTEN to resume." User-initiated output swaps,
+  AirPods connecting, headphone plug/unplug all land here. Per
+  product decision we stop rather than auto-rebuild; the user taps
+  LISTEN to resume on the new route, and the new route's output
+  choice survives because the session was never deactivated.
+- **Signature unchanged** → nothing material happened; just refresh
+  UI. This absorbs `.categoryChange` noise for free.
 
-### `oldDeviceUnavailable`
+### The silence window
 
-This is the legitimate "unplugged" signal, so it's *not* debounced:
+`ensureSessionConfigured()` and self-induced input re-pins set
+`silenceRouteChangesUntil = now + 2.5 s`. Within the window the handler
+still refreshes UI state and absorbs the new route signature (so the
+baseline is never stale), but does not stop listening — that would
+kill every start, since our own configuration fires a burst of
+notifications.
 
-```swift
-case .oldDeviceUnavailable:
-    if selectedInputIsMissing {
-        if isRunning {
-            stopForSettingsChange()
-            errorMessage = "Selected input was disconnected."
-        }
-    }
-```
+### In-app input changes also stop (and why)
 
-`selectedInputIsMissing` is set in `applyPreferredInputIfNeeded` when
-the previously persisted `uid` is no longer in `availableInputs`.
-Because we *also* update routes on every notification, the UI shows
-"<name> — missing" in red before the auto-stop fires.
+Selecting an input from the in-app menu while running stops listening
+("Input changed. Tap LISTEN to resume."), matching the output-change
+policy. Beyond UX consistency, this eliminated a real freeze: the old
+"teardown engine → reconfigure session → rebuild engine" sequence ran
+synchronously on the main thread while a USB route switch was in
+flight, which could deadlock the audio server and wedge the app.
+Stopping first means the session is only ever reconfigured while no
+engine is alive.
 
 ## State → UI projection
 
@@ -219,7 +274,7 @@ own init.
   state writes, no allocations beyond the `AVAudioPCMBuffer` itself
   (which is supplied by the engine).
 - **Cross-thread contract**: never hold a strong reference to the
-  `playerNode` outside the engine. `teardownAudioEngine` is the only
+  `playerNode` outside the engine. `teardownEngine` is the only
   place that breaks the contract, and it does so behind
   `removeTap → engine.stop`, so the audio thread either runs the guard
   and returns or the buffer is dropped silently.

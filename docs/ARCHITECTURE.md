@@ -92,7 +92,7 @@ concern and never needs to outlive the screen.
    engine → calls `applyOutputOverrideIfNeeded()`.
 7. Audio runs. Route-change notifications passively update the displayed
    input/output lists and may auto-stop if the selected input disappears.
-8. **User taps STOP** → `stop()` → `teardownAudioEngine()` → re-route
+8. **User taps STOP** → `stop()` → `teardownEngine()` → re-route
    queries.
 9. **Settings change mid-run** (`selectInput`, `clearSelectedInput`) →
    teardown → reconfigure → auto-restart if previously running.
@@ -109,7 +109,7 @@ concern and never needs to outlive the screen.
   are dispatched to `.main` before mutating state.
 
 The shared contract between audio thread and main thread is:
-the manager never lets the `player` strong-reference escape; `teardownAudioEngine`
+the manager never lets the `player` strong-reference escape; `teardownEngine`
 does `engine.inputNode.removeTap(onBus: 0)` then `engine.stop()` while
 nil-ling `playerNode`. The audio-thread guard `guard let player = player,
 player.isPlaying else { return }` makes any residual fire safe.
