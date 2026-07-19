@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var audioManager = AudioEngineManager()
     @State private var showSpeakerWarning = false
-    
+
     var body: some View {
         ZStack {
             LinearGradient(
@@ -15,24 +15,22 @@ struct ContentView: View {
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-            
-            VStack(spacing: 14) {
-                Text("AnyListen")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.95))
-                    .padding(.top, 8)
-                
-                settingsCard
-                
-                listenButton
-                    .padding(.vertical, 6)
-                
-                statusArea
-                
-                Spacer(minLength: 0)
+
+            // ScrollView so the layout gracefully handles larger Dynamic Type
+            // sizes (senior-friendly) without pushing the listen button off-screen.
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 12) {
+                    headerTitle
+                        .padding(.top, 8)
+
+                    microphoneCard
+                    speakerCard
+                    listeningCard
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 10)
         }
         .onAppear {
             audioManager.updateAudioRoutes()
@@ -46,26 +44,51 @@ struct ContentView: View {
             Text("Routing microphone input to a phone or tablet speaker can create loud feedback. Keep the output away from the input, or choose headphones/Bluetooth/USB output instead.")
         }
     }
-    
-    private var settingsCard: some View {
+
+    // MARK: - Header
+
+    private var headerTitle: some View {
+        Text("AnyListen")
+            .font(.system(size: 18, weight: .bold, design: .rounded))
+            .foregroundColor(.white.opacity(0.95))
+    }
+
+    // MARK: - Cards
+
+    private var microphoneCard: some View {
         VStack(spacing: 10) {
             routeRow(
-                title: "INPUT",
+                title: "Microphone",
                 value: audioManager.currentInputName,
                 icon: "mic.fill",
                 isWarning: audioManager.selectedInputIsMissing
             ) {
                 inputMenu
             }
-            
-            Divider()
-                .background(Color.white.opacity(0.12))
-            
+
+            // Contextual warning lives inside the microphone card, since it
+            // is exclusively about a missing microphone.
+            if audioManager.selectedInputIsMissing {
+                warningText("Selected microphone is missing. Reconnect it or choose another input.")
+            }
+        }
+        .padding(14)
+        .cardStyle(borderColor: cardBorderColor(forWarning: audioManager.selectedInputIsMissing))
+        .animation(.easeInOut(duration: 0.25), value: audioManager.selectedInputIsMissing)
+    }
+
+    private var speakerCard: some View {
+        VStack(spacing: 10) {
             routeRow(
-                title: "OUTPUT",
+                title: "Speaker or Headphones",
                 value: audioManager.currentOutputName,
                 icon: "speaker.wave.2.fill",
-                isWarning: audioManager.outputMayCauseFeedback
+                // No row tint for the "selected but feedback-prone" case: the
+                // output IS working and selected, so the icon + value stay
+                // in their normal cyan/white tones. Attention is drawn by the
+                // orange card border and the warning text below instead of
+                // making the row look like the device is missing.
+                isWarning: false
             ) {
                 AudioRoutePicker()
                     .frame(width: 52, height: 44)
@@ -73,24 +96,177 @@ struct ContentView: View {
                     .cornerRadius(12)
                     .accessibilityLabel("Select output")
             }
-            
+
+            // Feedback warning lives inside the speaker card, scoped to the
+            // device that creates the risk.
             if audioManager.outputMayCauseFeedback {
                 warningText("Speaker output can cause feedback. Use headphones, Bluetooth, or USB output when possible.")
             }
-            
-            if audioManager.selectedInputIsMissing {
-                warningText("Selected input is missing. Reconnect it or choose another input.")
+        }
+        .padding(14)
+        .cardStyle(borderColor: cardBorderColor(forWarning: audioManager.outputMayCauseFeedback))
+        .animation(.easeInOut(duration: 0.25), value: audioManager.outputMayCauseFeedback)
+    }
+
+    private var listeningCard: some View {
+        VStack(spacing: 12) {
+            // Title row mirrors the routeRow pattern so the three cards
+            // share a consistent visual rhythm (icon + small label + state).
+            HStack(spacing: 12) {
+                Image(systemName: "ear")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(listeningRowIconColor)
+                    .frame(width: 30)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Listening Control")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.55))
+                    Text(listeningStateText)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(listeningValueColor)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.78)
+                }
+
+                Spacer(minLength: 8)
+            }
+            .frame(minHeight: 54)
+
+            listenButton
+
+            // Operational / engine errors (route changed, interrupted,
+            // system reset, etc.) land here — errors that don't belong to
+            // either the input or output card individually.
+            if let errorMessage = audioManager.errorMessage {
+                warningText(errorMessage)
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.08))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
-        )
-        .cornerRadius(20)
+        .cardStyle(borderColor: listeningCardBorderColor)
+        .animation(.easeInOut(duration: 0.25), value: audioManager.isRunning)
+        .animation(.easeInOut(duration: 0.25), value: audioManager.errorMessage)
     }
-    
+
+    // MARK: - Computed display state
+
+    /// True when the LISTEN control is unavailable because configuration
+    /// is incomplete (i.e. the user must pick a microphone first).
+    private var isButtonDisabledByConfig: Bool {
+        !audioManager.isRunning && audioManager.selectedInputIsMissing
+    }
+
+    private var listeningStateText: String {
+        if isButtonDisabledByConfig { return "Disabled" }
+        return audioManager.isRunning ? "Listening is on" : "Listening is off"
+    }
+
+    private var listeningValueColor: Color {
+        if isButtonDisabledByConfig { return .orange }
+        return audioManager.isRunning ? .green : .white
+    }
+
+    private var listeningRowIconColor: Color {
+        if isButtonDisabledByConfig { return .orange }
+        return audioManager.isRunning ? .green : .cyan
+    }
+
+    /// Listening card border: green when actively listening, orange when
+    /// there is a contextual operational error, otherwise the standard
+    /// subtle white.
+    private var listeningCardBorderColor: Color {
+        if audioManager.isRunning { return Color.green.opacity(0.45) }
+        if audioManager.errorMessage != nil { return Color.orange.opacity(0.45) }
+        return Color.white.opacity(0.10)
+    }
+
+    // MARK: - Listen button
+
+    private var listenButton: some View {
+        Button {
+            if audioManager.isRunning {
+                audioManager.stop()
+            } else if audioManager.outputMayCauseFeedback {
+                showSpeakerWarning = true
+            } else {
+                audioManager.beginListening()
+            }
+        } label: {
+            VStack(spacing: 12) {
+                ZStack {
+                    // Filled green only when actively listening.
+                    Circle()
+                        .fill(audioManager.isRunning ? Color.green : Color.clear)
+                        .frame(width: 132, height: 132)
+                        .shadow(
+                            color: audioManager.isRunning ? Color.green.opacity(0.45) : .clear,
+                            radius: 16, y: 0
+                        )
+
+                    // Hollow stroke for the "ready" and "disabled" states.
+                    Circle()
+                        .stroke(buttonStrokeColor, lineWidth: 3)
+                        .frame(width: 132, height: 132)
+
+                    Image(systemName: "ear")
+                        .font(.system(size: 58, weight: .regular))
+                        .foregroundColor(buttonIconColor)
+
+                    // Diagonal "no" slash for the disabled state only.
+                    if isButtonDisabledByConfig {
+                        Capsule()
+                            .fill(Color.white.opacity(0.65))
+                            .frame(width: 9, height: 124)
+                            .rotationEffect(.degrees(50))
+                    }
+                }
+                .animation(.easeInOut(duration: 0.25), value: audioManager.isRunning)
+                .animation(.easeInOut(duration: 0.25), value: audioManager.selectedInputIsMissing)
+
+                Text(buttonLabelText)
+                    .font(.system(size: 19, weight: .semibold, design: .rounded))
+                    .foregroundColor(buttonLabelColor)
+                    .animation(.easeInOut(duration: 0.25), value: audioManager.isRunning)
+                    .animation(.easeInOut(duration: 0.25), value: audioManager.selectedInputIsMissing)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isButtonDisabledByConfig)
+    }
+
+    private var buttonLabelText: String {
+        if isButtonDisabledByConfig { return "Microphone required" }
+        return audioManager.isRunning ? "Stop Listening" : "Start Listening"
+    }
+
+    /// White "Stop Listening" on the iOS system-green fill is the
+    /// standard treatment for an active control carrying a "stop"
+    /// verb: crisp, high-readability, instantly recognizable. The word
+    /// "Stop" carries the action; the green palette carries the
+    /// "alive/listening" mood without any red anywhere in the active
+    /// state.
+    private var buttonLabelColor: Color {
+        if isButtonDisabledByConfig { return Color.white.opacity(0.40) }
+        return audioManager.isRunning
+            ? Color.white
+            : Color.green
+    }
+
+    private var buttonStrokeColor: Color {
+        if isButtonDisabledByConfig { return Color.white.opacity(0.25) }
+        return audioManager.isRunning ? Color.clear : Color.green.opacity(0.9)
+    }
+
+    private var buttonIconColor: Color {
+        if isButtonDisabledByConfig { return Color.white.opacity(0.30) }
+        return audioManager.isRunning ? .white : Color.green.opacity(0.9)
+    }
+
+    // MARK: - Route row (shared by mic + speaker cards)
+
     private func routeRow<Control: View>(
         title: String,
         value: String,
@@ -103,10 +279,10 @@ struct ContentView: View {
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(isWarning ? .orange : .cyan)
                 .frame(width: 30)
-            
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white.opacity(0.55))
                 Text(value)
                     .font(.system(size: 17, weight: .semibold))
@@ -114,13 +290,15 @@ struct ContentView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.78)
             }
-            
+
             Spacer(minLength: 8)
             control()
         }
         .frame(minHeight: 54)
     }
-    
+
+    // MARK: - Subviews
+
     private var inputMenu: some View {
         Menu {
             Button {
@@ -128,11 +306,11 @@ struct ContentView: View {
             } label: {
                 Label("Automatic", systemImage: audioManager.selectedInputID == nil ? "checkmark" : "circle")
             }
-            
+
             if !audioManager.availableInputs.isEmpty {
                 Divider()
             }
-            
+
             ForEach(audioManager.availableInputs) { input in
                 Button {
                     audioManager.selectInput(input)
@@ -146,7 +324,7 @@ struct ContentView: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Text("Select")
+                Text("Change")
                     .font(.system(size: 15, weight: .semibold))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 11, weight: .bold))
@@ -157,71 +335,40 @@ struct ContentView: View {
             .cornerRadius(12)
         }
     }
-    
-    private var listenButton: some View {
-        Button {
-            if audioManager.isRunning {
-                audioManager.stop()
-            } else if audioManager.outputMayCauseFeedback {
-                showSpeakerWarning = true
-            } else {
-                audioManager.beginListening()
-            }
-        } label: {
-            VStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(audioManager.isRunning ? Color(red: 0.70, green: 0.16, blue: 0.18) : Color(red: 0.02, green: 0.58, blue: 0.60))
-                        .frame(width: 132, height: 132)
-                        .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
-                    
-                    Image(systemName: "ear")
-                        .font(.system(size: 55, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-                
-                Text(audioManager.isRunning ? "STOP LISTENING" : "LISTEN")
-                    .font(.system(size: 20, weight: .heavy, design: .rounded))
-                    .foregroundColor(.white)
-                    .tracking(1.5)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(.plain)
-        .disabled(!audioManager.isRunning && audioManager.selectedInputIsMissing)
-        .opacity((!audioManager.isRunning && audioManager.selectedInputIsMissing) ? 0.55 : 1.0)
-    }
-    
-    private var statusArea: some View {
-        VStack(spacing: 8) {
-            Text(audioManager.isRunning ? "Listening is ON" : "Listening is OFF")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(audioManager.isRunning ? .green : .white.opacity(0.70))
-            
-            if let errorMessage = audioManager.errorMessage {
-                Text(errorMessage)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.orange)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.8)
-            }
-        }
-        .frame(minHeight: 58)
-    }
-    
+
     private func warningText(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundColor(.orange)
+                .font(.system(size: 12, weight: .semibold))
             Text(text)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.orange)
                 .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
         .padding(.top, 2)
+    }
+
+    private func cardBorderColor(forWarning warning: Bool) -> Color {
+        warning ? Color.orange.opacity(0.45) : Color.white.opacity(0.10)
+    }
+}
+
+// MARK: - Card styling
+
+private extension View {
+    /// Apply the consistent card chrome: translucent fill, 1pt border, and
+    /// 20pt corner radius. Border color is parameterized so each card can
+    /// highlight itself in orange (warnings) or stay neutral.
+    func cardStyle(borderColor: Color) -> some View {
+        self.background(Color.white.opacity(0.08))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(borderColor, lineWidth: 1)
+            )
+            .cornerRadius(20)
     }
 }
 
