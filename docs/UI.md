@@ -1,27 +1,24 @@
 # UI
 
-AnyListen ships a single screen built in SwiftUI. There are deliberately no
-tabs, navigation stacks, or settings pages today — the app's job fits in one
-view. (A Settings sheet is planned; see
-[`ROADMAP.md`](ROADMAP.md).)
+AnyListen ships a single screen built in SwiftUI, plus a Settings sheet
+opened from the gear icon in the header. There are deliberately no tabs or
+navigation stacks — the app's job fits in one view.
 
 ## Layout
 
 ```
 ┌──────────────────────────────────┐
-│  AnyListen                       │   ← Title (18 pt rounded bold)
+│  AnyListen                ⚙︎     │   ← Title (20 pt rounded bold) + gear
 ├──────────────────────────────────┤
 │ ┌──────────────────────────────┐ │
 │ │ 🎤  MICROPHONE               │ │   ← mic icon + "Change ▾" Menu
-│ │     <current input name>     │ │   ← (Automatic + each input)
-│ │                  [ Change ▾ ]│ │
-│ │ <missing-mic warning>        │ │   ← orange, only when missing
+│ │     <current input name>     │ │   ← orange "X — missing" when the
+│ │                  [ Change ▾ ]│ │     selected mic is gone
 │ └──────────────────────────────┘ │
 │ ┌──────────────────────────────┐ │
 │ │ 🔊  SPEAKER OR HEADPHONES    │ │   ← AVRoutePickerView (AirPlay)
-│ │     <current output name>    │ │
-│ │                [ 🎚 AirPlay ]│ │
-│ │ <missing / feedback warning> │ │   ← orange, when applicable
+│ │     <current output name>    │ │   ← orange "X — missing" or
+│ │                [ 🎚 AirPlay ]│ │     "Connect headphones" when blocked
 │ └──────────────────────────────┘ │
 │ ┌──────────────────────────────┐ │
 │ │ ◗  LISTENING CONTROL         │ │
@@ -29,11 +26,17 @@ view. (A Settings sheet is planned; see
 │ │     ╭──────────╮             │ │
 │ │     │  ◗ ear   │             │ │   ← Listen / Stop (132 × 132)
 │ │     ╰──────────╯             │ │
-│ │     LISTEN  (or STOP…)       │ │
-│ │ <error message in orange>    │ │
+│ │     Start / Stop Listening   │ │   ← or the reason it's disabled
 │ └──────────────────────────────┘ │
 └──────────────────────────────────┘
 ```
+
+Warning states are shown *in place*: the row's value text turns orange
+("Wireless ME RX — missing", "Connect headphones") and the Listen button is
+disabled with the reason as its label ("Headphones required", "Microphone
+required"). There are no separate warning banners, and `errorMessage` from
+the manager is currently **not rendered** — stop causes are communicated via
+the orange state text and the disabled button label.
 
 The whole thing sits on a top-leading → bottom-trailing linear gradient
 between two dark navy stops, inside a `ScrollView` so larger Dynamic Type
@@ -43,13 +46,13 @@ sizes (senior-friendly) don't push the listen button off-screen.
 
 | Subview | Role |
 |---------|------|
-| `microphoneCard` | The MICROPHONE panel. Hosts the input menu and the missing-mic warning. |
-| `speakerCard` | The SPEAKER OR HEADPHONES panel. Hosts `AudioRoutePicker` and the missing-output / feedback warnings. |
-| `listeningCard` | The LISTENING CONTROL panel. Hosts the listen button, state label, and operational error message. |
+| `microphoneCard` | The MICROPHONE panel. Hosts the input menu; value text goes orange with a "— missing" suffix when the selected mic is gone. |
+| `speakerCard` | The SPEAKER OR HEADPHONES panel. Hosts `AudioRoutePicker`; shows "Connect headphones" in orange while the route is iPhone mic → iPhone speaker. |
+| `listeningCard` | The LISTENING CONTROL panel. Hosts the listen button and state label; border turns green while running. |
 | `routeRow(...)` | Helper builder. Renders a leading icon, two-line title/value, and a trailing control (any `View`). Marks warning state with orange. |
 | `inputMenu` | SwiftUI `Menu` containing "Automatic" + every device in `availableInputs`, marked with a check when current. |
-| `listenButton` | The big circular 132 × 132 button. Inline logic: if running → `stop()`; else if `outputMayCauseFeedback` → show the warning alert; else `beginListening()`. Disabled and dimmed when the selected input is missing. |
-| `warningText(_:)` | Small helper for the orange feedback / missing-device warnings inside each card. |
+| `listenButton` | The big circular 132 × 132 button. If running → `stop()`; else `beginListening()`. Disabled (`isButtonDisabled`) when the selected input is missing, the output is missing, or the route is the same-device loopback — with the reason shown as the label. |
+| `SettingsView` | The gear-icon sheet: monitor-volume slider, "Start listening automatically", and "Resume after phone calls". |
 
 Each card is wrapped in the `cardStyle(borderColor:)` helper: a translucent
 fill, a 1pt border (orange when warning, otherwise subtle white), and a 20pt
@@ -64,26 +67,25 @@ the screen, and never recreates it:
 @StateObject private var audioManager = AudioEngineManager()
 ```
 
-All state that needs to drive UI lives on `audioManager`, with one
-exception: `@State private var showSpeakerWarning` belongs to the view
-because the warning is a transient modal UX concern, not a domain
-property of the audio model.
+All state that drives the UI lives on `audioManager`; the only view-local
+state is `@State private var showSettings` for the Settings sheet.
 
 Reactions:
 
 - `onAppear` triggers `audioManager.updateAudioRoutes()` to make sure the
   list of available inputs is fresh on first paint.
-- The listen button consults three manager properties: `isRunning`
-  (drives label color and fill), `outputMayCauseFeedback` (gates the
-  feedback warning alert), and `selectedInputIsMissing` (drives the
-  disabled / "Microphone required" state).
-- The microphone card renders an orange warning when
+- `onChange(of: audioManager.isRunning)` posts a VoiceOver announcement
+  ("Listening started" / "Listening stopped").
+- The listen button consults `isRunning` (drives label, fill, and whether a
+  tap stops or starts) and is disabled via `isButtonDisabled`, which is true
+  when `selectedInputIsMissing`, `outputIsMissing`, or `isDangerousLoopback`
+  (iPhone mic → iPhone speaker) holds while not running.
+- The microphone card renders its value in orange when
   `selectedInputIsMissing` is true.
-- The speaker card renders an orange warning when `outputIsMissing` (a
-  remembered external output has vanished and iOS fell back to the
-  speaker) OR `outputMayCauseFeedback` (the speaker is genuinely the
-  chosen output). Missing takes precedence over feedback in the text.
-- The listening card reads `isRunning` and `errorMessage`.
+- The speaker card renders its value in orange when `outputIsMissing` (a
+  remembered external output has vanished and iOS fell back to the speaker)
+  or `isDangerousLoopback` — the latter replacing the value text with
+  "Connect headphones".
 
 Cross-flow that *could* feel surprising:
 
@@ -114,64 +116,53 @@ workaround is described in the comment on `layoutSubviews`. There is no
 `AVRoutePickerView` is private; brute-force mass-resize is the
 documented workaround used elsewhere too.
 
-## Feedback warning UX
+## Feedback guard UX
 
-```swift
-.alert("Speaker feedback warning", isPresented: $showSpeakerWarning) {
-    Button("Cancel", role: .cancel) { }
-    Button("Listen Anyway", role: .destructive) {
-        audioManager.beginListening()
-    }
-} message { … }
-```
+The same-device loopback case (iPhone mic → iPhone speaker, the default
+state on first launch with nothing plugged in) is **blocked, not warned
+about**: `isDangerousLoopback` disables the Listen button, the speaker card
+shows "Connect headphones" in orange, and the button label reads
+"Headphones required". This replaced an earlier design that showed a scary
+confirm alert with a "Listen Anyway" escape hatch (shipped per
+[`ROADMAP.md`](ROADMAP.md) P1, except the "allow same-device loopback"
+override toggle, which was not added — the guard is always on).
 
-Triggers when `audioManager.outputMayCauseFeedback == true` — i.e., the
-active output is `builtInSpeaker` (and not merely the fallback for a
-missing external). The user can still proceed; the warning is
-informational, not blocking.
-
-> **Planned change:** the same-device loopback case (iPhone mic → iPhone
-> speaker) is the worst possible first-run experience. The plan is to
-> disable the Listen button for that case by default (with constructive
-> "connect headphones" guidance instead of a scary confirm) and hide an
-> "allow same-device loopback" toggle in Settings. See
-> [`ROADMAP.md`](ROADMAP.md), P1.
+`AudioEngineManager.outputMayCauseFeedback` still tracks the speaker-routed
+state but currently has no consumer in the view.
 
 ## Accessibility
 
-Today, the only labelled control is the route picker:
-
-```swift
-.accessibilityLabel("Select output")
-```
-
-Everything else relies on standard SwiftUI / system-derived labels:
-
-- Big button is unlabeled — VoiceOver says "Button" only. Recommend
-  adding `.accessibilityLabel(audioManager.isRunning ? "Stop listening"
-  : "Listen")` and `.accessibilityHint(...)`.
-- The MICROPHONE / SPEAKER rows are unlabeled `HStack`s. Recommend labelling
-  them as one combined element per row, or adding explicit labels to
-  the leading `Image` (`accessibilityHidden(true)` and shifting the
-  description onto the value text).
-- The listening card's state line is dynamic — fine — but the alert
-  message "Speaker feedback warning" is hard-coded English.
-
-See [`REVIEW.md`](REVIEW.md) for the full accessibility backlog, and
-[`ROADMAP.md`](ROADMAP.md) for accessibility work planned for this
-audience (hearing-aid users have non-trivial VoiceOver use).
+- The Listen button carries `.accessibilityLabel` (Start/Stop listening),
+  `.accessibilityHint`, and `.accessibilityValue` (on/off), and start/stop
+  is announced via `UIAccessibility.post(.announcement, …)`.
+- The gear button ("Settings") and the route picker ("Select output") are
+  labelled; the route picker's decorative state icon is hidden from
+  VoiceOver.
+- The layout lives in a `ScrollView` so larger Dynamic Type sizes don't
+  push the Listen button off-screen; the gear and Change controls keep
+  44×44 hit targets.
+- Remaining backlog: the mic/speaker rows are still separate elements
+  rather than one combined accessible element per row. See
+  [`REVIEW.md`](REVIEW.md) L2.
 
 ## Localization
 
-There is no `Localizable.strings`. Every visible string is a string
-literal in Swift or a SwiftUI default. If you ship this app outside
-English-speaking locales, you'll need to:
+All user-facing strings are extractable and live in two string catalogs:
 
-1. Add `Localizable.strings` (or use the built-in `String(localized:)` /
-   `LocalizedStringKey`).
-2. Wrap every user-facing literal.
-3. Localize the `NSMicrophoneUsageDescription` in `Info.plist` (add a
-   `InfoPlist.strings`).
+- `AnyListen/Localizable.xcstrings` — every UI string (SwiftUI `Text`
+  literals are auto-extracted; dynamic strings go through
+  `String(localized:)`; `SWIFT_EMIT_LOC_STRINGS = YES` is set in
+  `project.yml`).
+- `AnyListen/InfoPlist.xcstrings` — `NSMicrophoneUsageDescription`.
+
+English is the source and only language for v1 (the store listing is
+English-only too — see [`APP_STORE.md`](APP_STORE.md)). Shipping a new
+language is now a data-only change: add it to the catalogs in Xcode.
+
+One deliberate localization choice: device names from `AVAudioSession`
+(e.g. "Jules's AirPods") are passed through verbatim, and composite
+sentences ("Selected input was disconnected.") are whole-sentence keys
+rather than interpolated fragments.
 
 ## Why no SwiftUI-only audio devices API?
 

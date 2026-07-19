@@ -53,8 +53,18 @@ the side-by-side Live Listen latency check.**
 
 ## Prioritized plan
 
+> **Status (July 2026):** P1, P3, and P4 have **shipped** (P1 without the
+> "allow same-device loopback" override — the guard is always on; P4's
+> slider lives in the Settings sheet). Auto-resume after calls also shipped
+> (default **on**, not the "stay stopped" default proposed below). P2 and
+> P5 remain open.
+
 ### P1 — Same-device loopback guard + first-run guidance
 *(cheap, high impact, no latency impact)*
+
+**Status: ✅ Shipped** — `isDangerousLoopback` disables the Listen button,
+the speaker card shows "Connect headphones", the button reads "Headphones
+required". The override toggle was not added.
 
 **Problem.** iPhone-mic → iPhone-speaker is virtually always unwanted,
 causes feedback, and is *the default state when the app opens with no
@@ -110,6 +120,10 @@ choice still behave and that latency parity holds). **Files:**
 ### P3 — Auto-listen ("lock on")
 *(the best "set and forget" win; no latency impact)*
 
+**Status: ✅ Shipped** — "Start listening automatically" in Settings,
+persisted, evaluated on route changes / foregrounding / enumeration ticks.
+The cold-background caveat below still applies.
+
 **Problem.** Users who want the mic on whenever their gear is connected must
 tap LISTEN every time. Unplugging the USB mic should mute; plugging it back
 in should resume.
@@ -145,6 +159,9 @@ keeping a silent engine running — a battery cost best avoided for v1.)
 
 ### P4 — Monitor volume slider (`mainMixerNode.outputVolume`)
 *(the zero-latency loudness + hearing-protection lever)*
+
+**Status: ✅ Shipped** — slider in the Settings sheet, persisted, clamped
+to 0.0–1.0 (attenuation only, no boost).
 
 **Problem.** Pass-through gain is fixed at 1.0 (REVIEW H1). For high-gain
 USB preamps into BT hearing aids this can be uncomfortably loud; the user
@@ -230,8 +247,9 @@ manual exclude list adds UI weight for little gain.
 - `docs/UI.md` previously referenced a monolithic `settingsCard` /
   `statusArea`; corrected to the three-card layout in this round.
 - `docs/REVIEW.md` H3 / M2 / M3 / L5 are now marked resolved, M5 marked N/A
-  (this round). Still-open items worth picking up: H1 (→ P4), H2 (AppIcon —
-  still missing), M1 (→ P5), M4, M6, M7, L1–L11.
+  (this round). Since then, H1 (→ P4), H2 (AppIcon), and L1 (string
+  catalogs) have also been resolved. Still-open items worth picking up:
+  M1 (→ P5), M4, M6, M7, L2 (partial), L3, L4, L6–L11.
 
 ## Suggested implementation order
 

@@ -40,9 +40,11 @@ struct ContentView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView(audioManager: audioManager)
         }
-        .onChange(of: audioManager.isRunning) { newValue in
+        .onChange(of: audioManager.isRunning) { _, newValue in
             UIAccessibility.post(notification: .announcement,
-                                 argument: newValue ? "Listening started" : "Listening stopped")
+                                 argument: newValue
+                                    ? String(localized: "Listening started")
+                                    : String(localized: "Listening stopped"))
         }
     }
 
@@ -69,7 +71,7 @@ struct ContentView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .accessibilityLabel("Settings")
+            .accessibilityLabel(Text("Settings"))
         }
     }
 
@@ -92,7 +94,7 @@ struct ContentView: View {
 
     private var outputValueText: String {
         if audioManager.isDangerousLoopback {
-            return "Connect headphones"
+            return String(localized: "Connect headphones")
         }
         return audioManager.currentOutputName
     }
@@ -109,7 +111,7 @@ struct ContentView: View {
                     .frame(width: 52, height: 44)
                     .background(Color.white.opacity(0.12))
                     .cornerRadius(12)
-                    .accessibilityLabel("Select output")
+                    .accessibilityLabel(Text("Select output"))
             }
         }
         .padding(14)
@@ -180,7 +182,9 @@ struct ContentView: View {
     }
 
     private var listeningStateText: String {
-        return audioManager.isRunning ? "Listening is on" : "Listening is off"
+        return audioManager.isRunning
+            ? String(localized: "Listening is on")
+            : String(localized: "Listening is off")
     }
 
     private var listeningValueColor: Color {
@@ -244,19 +248,25 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .disabled(isButtonDisabled)
-        .accessibilityLabel(audioManager.isRunning ? "Stop listening" : "Start listening")
+        .accessibilityLabel(audioManager.isRunning
+            ? String(localized: "Stop listening")
+            : String(localized: "Start listening"))
         .accessibilityHint(audioManager.isRunning
-            ? "Stops routing microphone audio to your output"
-            : "Starts routing microphone audio to your output")
-        .accessibilityValue(audioManager.isRunning ? "on" : "off")
+            ? String(localized: "Stops routing microphone audio to your output")
+            : String(localized: "Starts routing microphone audio to your output"))
+        .accessibilityValue(audioManager.isRunning
+            ? String(localized: "on", comment: "Accessibility value: listening is on")
+            : String(localized: "off", comment: "Accessibility value: listening is off"))
     }
 
     private var buttonLabelText: String {
-        if isDangerousBlocked { return "Headphones required" }
-        if inputMissing && outputMissing { return "Headphones and microphone required" }
-        if inputMissing { return "Microphone required" }
-        if outputMissing { return "Headphones required" }
-        return audioManager.isRunning ? "Stop Listening" : "Start Listening"
+        if isDangerousBlocked { return String(localized: "Headphones required") }
+        if inputMissing && outputMissing { return String(localized: "Headphones and microphone required") }
+        if inputMissing { return String(localized: "Microphone required") }
+        if outputMissing { return String(localized: "Headphones required") }
+        return audioManager.isRunning
+            ? String(localized: "Stop Listening")
+            : String(localized: "Start Listening")
     }
 
     /// White "Stop Listening" on the iOS system-green fill is the
@@ -287,7 +297,7 @@ struct ContentView: View {
     // MARK: - Route row (shared by mic + speaker cards)
 
     private func routeRow<Control: View>(
-        title: String,
+        title: LocalizedStringKey,
         value: String,
         icon: String,
         isWarning: Bool,
@@ -356,26 +366,6 @@ struct ContentView: View {
         }
     }
 
-    private func warningText(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.orange)
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 30) // Matches the 30pt width of the main category icons above!
-            
-            Text(text)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.orange)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .padding(.top, 2)
-    }
-
-    private func cardBorderColor(forWarning warning: Bool) -> Color {
-        warning ? Color.orange.opacity(0.45) : Color.white.opacity(0.10)
-    }
 }
 
 // MARK: - Card styling

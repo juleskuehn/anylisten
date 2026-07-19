@@ -30,6 +30,10 @@ AnyListen/
 ├── AnyListenApp.swift         # @main; WindowGroup > ContentView
 ├── AudioEngineManager.swift   # All audio state + routing logic
 ├── AudioRoutePicker.swift     # UIViewRepresentable wrapping AVRoutePickerView
-├── ContentView.swift          # The single screen
+├── ContentView.swift          # The single screen + Settings sheet
+├── Localizable.xcstrings      # String catalog (source: English)
+├── InfoPlist.xcstrings        # Localizable Info.plist strings
+├── PrivacyInfo.xcprivacy      # Privacy manifest
+├── Assets.xcassets/           # App icon
 └── Info.plist                 # Mic permission string + audio background mode
 ```

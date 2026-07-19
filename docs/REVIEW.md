@@ -27,6 +27,9 @@ limits, sudden peaks can hurt ears.
 `@Published var passThroughGain: Float`, default `1.0`, persistent via
 `UserDefaults`, with a `Slider` in the settings card. Clamp `0.0...1.0`.
 
+**Status:** ✅ Resolved — `monitorVolume` slider in the Settings sheet,
+persisted, clamped to attenuation-only (ROADMAP P4).
+
 ### H2. App icon is missing
 
 `project.yml` references no asset catalog, and `AnyListen/` has no
@@ -38,6 +41,10 @@ review.
 `AppIcon.appiconset` containing the required 1024×1024 master plus the
 device-scoped 60×60 / 120×120 / 180×180 entries. Add to
 `project.yml` as an explicit source.
+
+**Status:** ✅ Resolved — `Assets.xcassets/AppIcon.appiconset` with the
+single 1024×1024 universal slot (supported since Xcode 14) is in the target
+and `ASSETCATALOG_COMPILER_APPICON_NAME` is set in the generated project.
 
 ### H3. iPad is excluded without a reason
 
@@ -152,12 +159,24 @@ All visible strings are hard-coded English. There is no
 `Localizable.strings`. English-only is fine for a v1, but flag this
 before any App Store submission outside English locales.
 
+**Status:** ✅ Resolved (infrastructure) — every user-facing string is now
+extracted into `AnyListen/Localizable.xcstrings` (and
+`NSMicrophoneUsageDescription` into `InfoPlist.xcstrings`);
+`SWIFT_EMIT_LOC_STRINGS = YES` is set. Content remains English-only for v1
+by decision (see APP_STORE.md), but shipping a translation is now a
+data-only change.
+
 ### L2. Accessibility labels
 
 - Big "Listen" button has no `.accessibilityLabel`.
 - Input/output rows are unlabeled `HStack`s.
 - Alert "Speaker feedback warning" is English-only and not
   type-set for VoiceOver dynamic type sizing.
+
+**Status:** ✅ Mostly resolved — the Listen button now has label/hint/value,
+start/stop is announced to VoiceOver, gear and route picker are labelled,
+and the feedback alert no longer exists. Remaining: combine each route row
+into a single accessible element.
 
 ### L3. No tests
 

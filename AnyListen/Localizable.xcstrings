@@ -1,0 +1,676 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ (Bluetooth)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (Bluetooth)"
+          }
+        }
+      }
+    },
+    "%@ (USB)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (USB)"
+          }
+        }
+      }
+    },
+    "%@ (headphones)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (headphones)"
+          }
+        }
+      }
+    },
+    "%@ is not connected. Reconnect it or choose a different input.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ is not connected. Reconnect it or choose a different input."
+          }
+        }
+      }
+    },
+    "%@ · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@"
+          }
+        }
+      }
+    },
+    "%@ — missing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — missing"
+          }
+        }
+      }
+    },
+    "Adjusts the volume of the sound sent to your headphones. This can only decrease the volume; use your iPhone's physical volume buttons to increase the maximum sound level.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjusts the volume of the sound sent to your headphones. This can only decrease the volume; use your iPhone's physical volume buttons to increase the maximum sound level."
+          }
+        }
+      }
+    },
+    "AnyListen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AnyListen"
+          }
+        }
+      }
+    },
+    "Audio engine failed: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio engine failed: %@"
+          }
+        }
+      }
+    },
+    "Audio interrupted.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio interrupted."
+          }
+        }
+      }
+    },
+    "Audio route changed. Tap LISTEN to resume.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio route changed. Tap LISTEN to resume."
+          }
+        }
+      }
+    },
+    "Audio system reset. Tap LISTEN when ready.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio system reset. Tap LISTEN when ready."
+          }
+        }
+      }
+    },
+    "Automatic": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic"
+          }
+        }
+      }
+    },
+    "Automatic Start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic Start"
+          }
+        }
+      }
+    },
+    "Bluetooth": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bluetooth"
+          }
+        }
+      }
+    },
+    "Built-in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built-in"
+          }
+        }
+      }
+    },
+    "Change": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change"
+          }
+        }
+      }
+    },
+    "Connect headphones": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect headphones"
+          }
+        }
+      }
+    },
+    "Could not reset input: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not reset input: %@"
+          }
+        }
+      }
+    },
+    "Could not select input: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not select input: %@"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "External microphone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "External microphone"
+          }
+        }
+      }
+    },
+    "External output": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "External output"
+          }
+        }
+      }
+    },
+    "Failed to configure audio: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to configure audio: %@"
+          }
+        }
+      }
+    },
+    "Failed to create audio engine.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to create audio engine."
+          }
+        }
+      }
+    },
+    "Headphones and microphone required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headphones and microphone required"
+          }
+        }
+      }
+    },
+    "Headphones required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headphones required"
+          }
+        }
+      }
+    },
+    "Headset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headset"
+          }
+        }
+      }
+    },
+    "Input": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input"
+          }
+        }
+      }
+    },
+    "Input changed. Tap LISTEN to resume.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input changed. Tap LISTEN to resume."
+          }
+        }
+      }
+    },
+    "Invalid audio input format.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid audio input format."
+          }
+        }
+      }
+    },
+    "Line In": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Line In"
+          }
+        }
+      }
+    },
+    "Listening Control": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening Control"
+          }
+        }
+      }
+    },
+    "Listening is off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening is off"
+          }
+        }
+      }
+    },
+    "Listening is on": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening is on"
+          }
+        }
+      }
+    },
+    "Listening started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening started"
+          }
+        }
+      }
+    },
+    "Listening stopped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening stopped"
+          }
+        }
+      }
+    },
+    "Microphone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone"
+          }
+        }
+      }
+    },
+    "Microphone access is required to route audio.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone access is required to route audio."
+          }
+        }
+      }
+    },
+    "Microphone required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone required"
+          }
+        }
+      }
+    },
+    "No input": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No input"
+          }
+        }
+      }
+    },
+    "No input available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No input available"
+          }
+        }
+      }
+    },
+    "No output": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No output"
+          }
+        }
+      }
+    },
+    "No output available": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No output available"
+          }
+        }
+      }
+    },
+    "Phone Calls": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Calls"
+          }
+        }
+      }
+    },
+    "Resume after phone calls": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume after phone calls"
+          }
+        }
+      }
+    },
+    "Select output": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select output"
+          }
+        }
+      }
+    },
+    "Selected input": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected input"
+          }
+        }
+      }
+    },
+    "Selected input was disconnected.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected input was disconnected."
+          }
+        }
+      }
+    },
+    "Selected output was disconnected.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected output was disconnected."
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        }
+      }
+    },
+    "Speaker or Headphones": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speaker or Headphones"
+          }
+        }
+      }
+    },
+    "Start Listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Listening"
+          }
+        }
+      }
+    },
+    "Start listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start listening"
+          }
+        }
+      }
+    },
+    "Start listening automatically": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start listening automatically"
+          }
+        }
+      }
+    },
+    "Starts routing microphone audio to your output": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts routing microphone audio to your output"
+          }
+        }
+      }
+    },
+    "Stop Listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop Listening"
+          }
+        }
+      }
+    },
+    "Stop listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop listening"
+          }
+        }
+      }
+    },
+    "Stops routing microphone audio to your output": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stops routing microphone audio to your output"
+          }
+        }
+      }
+    },
+    "USB": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "USB"
+          }
+        }
+      }
+    },
+    "Volume": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
+          }
+        }
+      }
+    },
+    "When a phone call or other interruption ends, the app will automatically start listening again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When a phone call or other interruption ends, the app will automatically start listening again."
+          }
+        }
+      }
+    },
+    "When your microphone and headphones are both connected, the app will start listening automatically. In some cases, you might need to open the app again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When your microphone and headphones are both connected, the app will start listening automatically. In some cases, you might need to open the app again."
+          }
+        }
+      }
+    },
+    "iPhone Earpiece": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone Earpiece"
+          }
+        }
+      }
+    },
+    "iPhone Speaker": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone Speaker"
+          }
+        }
+      }
+    },
+    "off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "off"
+          }
+        }
+      }
+    },
+    "on": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

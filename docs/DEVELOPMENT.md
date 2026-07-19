@@ -5,6 +5,12 @@ This document describes how to build, run, sign, and extend AnyListen.
 ## Required tooling
 
 - **Xcode 15 or later** (Swift 5.9 / iOS 17 SDK).
+- **Deployment target: iOS 17.0**, set explicitly as
+  `IPHONEOS_DEPLOYMENT_TARGET` in `project.yml`. The floor is dictated by
+  `AVAudioApplication.requestRecordPermission` (iOS 17+); `NavigationStack`
+  needs iOS 16. Without the explicit setting, the generated project would
+  default to the latest SDK's deployment target and silently exclude older
+  devices.
 - **XcodeGen** if you want to regenerate the project from `project.yml`:
 
   ```sh
@@ -190,5 +196,28 @@ This app:
 - Never opens a network socket.
 - Does not include any analytics frameworks.
 
+`AnyListen/PrivacyInfo.xcprivacy` is the privacy manifest App Store
+Connect requires: it declares no collected data
+(`NSPrivacyCollectedDataTypes` empty), no tracking, and the one
+required-reason API the app uses — `UserDefaults`, reason `CA92.1`
+(preferences stored on-device only).
+
 If you ever change any of these, update the privacy section in this
-document and re-review the app review questionnaire accordingly.
+document, the privacy manifest, and re-review the app review questionnaire
+accordingly.
+
+## Localization
+
+User-facing strings live in `AnyListen/Localizable.xcstrings` (source
+language: English) and `NSMicrophoneUsageDescription` in
+`AnyListen/InfoPlist.xcstrings`. `SWIFT_EMIT_LOC_STRINGS = YES` is set in
+`project.yml`, so building in Xcode keeps the catalog in sync with new
+string literals. Rules of thumb:
+
+- SwiftUI `Text("…")` literals are extracted automatically.
+- Strings built in code (e.g. in `AudioEngineManager`) must go through
+  `String(localized:)`.
+- Whole sentences as keys — never interpolate one localized word into
+  another sentence.
+- To ship a new language: add it to the catalogs in Xcode and send the
+  exported `.xcloc` for translation. No code changes needed.

@@ -113,8 +113,8 @@ final class AudioEngineManager: ObservableObject {
 
     @Published var isRunning: Bool = false
     @Published var availableInputs: [AudioInputDevice] = []
-    @Published var currentInputName: String = "No input"
-    @Published var currentOutputName: String = "No output"
+    @Published var currentInputName: String = String(localized: "No input")
+    @Published var currentOutputName: String = String(localized: "No output")
     @Published var selectedInputID: String? = nil
     @Published var selectedInputName: String? = nil
     @Published var selectedInputIsMissing: Bool = false
@@ -302,7 +302,7 @@ final class AudioEngineManager: ObservableObject {
                 if granted {
                     self?.start()
                 } else {
-                    self?.errorMessage = "Microphone access is required to route audio."
+                    self?.errorMessage = String(localized: "Microphone access is required to route audio.")
                 }
             }
         }
@@ -326,13 +326,13 @@ final class AudioEngineManager: ObservableObject {
         do {
             try ensureSessionConfigured()
         } catch {
-            configError = "Could not select input: \(error.localizedDescription)"
+            configError = String(localized: "Could not select input: \(error.localizedDescription)")
         }
         updateAudioRoutes()
         lastRouteSignature = currentRouteSignature()
 
         if wasRunning {
-            stopListening(withMessage: configError ?? "Input changed. Tap LISTEN to resume.")
+            stopListening(withMessage: configError ?? String(localized: "Input changed. Tap LISTEN to resume."))
         } else {
             errorMessage = configError
         }
@@ -353,13 +353,13 @@ final class AudioEngineManager: ObservableObject {
         do {
             try ensureSessionConfigured()
         } catch {
-            configError = "Could not reset input: \(error.localizedDescription)"
+            configError = String(localized: "Could not reset input: \(error.localizedDescription)")
         }
         updateAudioRoutes()
         lastRouteSignature = currentRouteSignature()
 
         if wasRunning {
-            stopListening(withMessage: configError ?? "Input changed. Tap LISTEN to resume.")
+            stopListening(withMessage: configError ?? String(localized: "Input changed. Tap LISTEN to resume."))
         } else {
             errorMessage = configError
         }
@@ -372,7 +372,7 @@ final class AudioEngineManager: ObservableObject {
         do {
             try ensureSessionConfigured()
         } catch {
-            errorMessage = "Failed to configure audio: \(error.localizedDescription)"
+            errorMessage = String(localized: "Failed to configure audio: \(error.localizedDescription)")
             updateAudioRoutes()
             return
         }
@@ -442,13 +442,13 @@ final class AudioEngineManager: ObservableObject {
             try setupAudioEngine()
             guard let engine = audioEngine else {
                 throw NSError(domain: "AnyListen", code: 1,
-                              userInfo: [NSLocalizedDescriptionKey: "Failed to create audio engine."])
+                              userInfo: [NSLocalizedDescriptionKey: String(localized: "Failed to create audio engine.")])
             }
             try engine.start()
             isRunning = true
             errorMessage = nil
         } catch {
-            errorMessage = "Audio engine failed: \(error.localizedDescription)"
+            errorMessage = String(localized: "Audio engine failed: \(error.localizedDescription)")
             teardownEngine()
             isRunning = false
         }
@@ -472,7 +472,7 @@ final class AudioEngineManager: ObservableObject {
         let format = inputNode.inputFormat(forBus: 0)
         guard format.channelCount > 0, format.sampleRate > 0 else {
             throw NSError(domain: "AnyListen", code: 2,
-                          userInfo: [NSLocalizedDescriptionKey: "Invalid audio input format."])
+                          userInfo: [NSLocalizedDescriptionKey: String(localized: "Invalid audio input format.")])
         }
         engine.connect(inputNode, to: engine.mainMixerNode, format: format)
         engine.mainMixerNode.outputVolume = monitorVolume
@@ -601,9 +601,9 @@ final class AudioEngineManager: ObservableObject {
         if let sid = selectedInputID {
             guard let selectedPort = inputs.first(where: { $0.uid == sid }) else {
                 selectedInputIsMissing = true
-                let missingName = selectedInputName ?? "Selected input"
+                let missingName = selectedInputName ?? String(localized: "Selected input")
                 throw NSError(domain: "AnyListen", code: 3,
-                              userInfo: [NSLocalizedDescriptionKey: "\(missingName) is not connected. Reconnect it or choose a different input."])
+                              userInfo: [NSLocalizedDescriptionKey: String(localized: "\(missingName) is not connected. Reconnect it or choose a different input.")])
             }
             selectedInputIsMissing = false
             target = selectedPort
@@ -703,7 +703,7 @@ final class AudioEngineManager: ObservableObject {
                 currentInputName = live.name
             } else {
                 selectedInputIsMissing = true
-                currentInputName = "\(selectedInputName ?? "Selected input") — missing"
+                currentInputName = Self.missingDisplayName(selectedInputName ?? String(localized: "Selected input"))
             }
         } else if let current = session.currentRoute.inputs.first {
             if current.portType != .builtInMic {
@@ -716,7 +716,7 @@ final class AudioEngineManager: ObservableObject {
                 if let lastID = lastExternalInputID,
                    !inputs.contains(where: { $0.uid == lastID }) {
                     selectedInputIsMissing = true
-                    currentInputName = "\(lastExternalInputName ?? "External microphone") — missing"
+                    currentInputName = Self.missingDisplayName(lastExternalInputName ?? String(localized: "External microphone"))
                 } else {
                     selectedInputIsMissing = false
                     currentInputName = current.portName
@@ -729,7 +729,7 @@ final class AudioEngineManager: ObservableObject {
             selectedInputIsMissing = false
             currentInputName = best.portName
         } else {
-            currentInputName = "No input available"
+            currentInputName = String(localized: "No input available")
             selectedInputIsMissing = false
         }
 
@@ -749,7 +749,7 @@ final class AudioEngineManager: ObservableObject {
                    !availableOutputs.contains(where: { $0.uid == lastID }) {
                     // Last external is gone, iOS has reverted to speaker.
                     outputIsMissing = true
-                    currentOutputName = "\(lastExternalOutputName ?? "External output") — missing"
+                    currentOutputName = Self.missingDisplayName(lastExternalOutputName ?? String(localized: "External output"))
                 } else {
                     // No remembered external, OR remembered external is
                     // still in availableOutputs (paired, just not yet
@@ -767,7 +767,7 @@ final class AudioEngineManager: ObservableObject {
             // while we're telling the user "your external is missing".
             outputMayCauseFeedback = currentOutput.portType == .builtInSpeaker && !outputIsMissing
         } else {
-            currentOutputName = "No output available"
+            currentOutputName = String(localized: "No output available")
             outputMayCauseFeedback = false
             outputIsMissing = false
         }
@@ -794,24 +794,39 @@ final class AudioEngineManager: ObservableObject {
         UserDefaults.standard.set(name, forKey: lastExternalOutputNameKey)
     }
 
+    /// Display name for a device that was previously routed but is no
+    /// longer available, e.g. "Wireless ME RX — missing".
+    private static func missingDisplayName(_ name: String) -> String {
+        String(localized: "\(name) — missing")
+    }
+
+    /// Stop message when the device we depend on goes away mid-listen.
+    /// Two complete sentences (not an interpolated "input"/"output" word)
+    /// so each localizes as a whole phrase.
+    private static func disconnectedMessage(selectedInputMissing: Bool) -> String {
+        selectedInputMissing
+            ? String(localized: "Selected input was disconnected.")
+            : String(localized: "Selected output was disconnected.")
+    }
+
     private static func readableInputType(_ portType: AVAudioSession.Port) -> String {
         switch portType {
-        case .builtInMic: return "Built-in"
-        case .usbAudio: return "USB"
-        case .bluetoothHFP, .bluetoothLE, .bluetoothA2DP: return "Bluetooth"
-        case .headsetMic: return "Headset"
-        case .lineIn: return "Line In"
-        default: return "Input"
+        case .builtInMic: return String(localized: "Built-in")
+        case .usbAudio: return String(localized: "USB")
+        case .bluetoothHFP, .bluetoothLE, .bluetoothA2DP: return String(localized: "Bluetooth")
+        case .headsetMic: return String(localized: "Headset")
+        case .lineIn: return String(localized: "Line In")
+        default: return String(localized: "Input")
         }
     }
 
     private static func readableOutputName(_ output: AVAudioSessionPortDescription) -> String {
         switch output.portType {
-        case .builtInSpeaker: return "iPhone Speaker"
-        case .builtInReceiver: return "iPhone Earpiece"
-        case .bluetoothA2DP, .bluetoothHFP, .bluetoothLE: return "\(output.portName) (Bluetooth)"
-        case .headphones: return "\(output.portName) (headphones)"
-        case .usbAudio: return "\(output.portName) (USB)"
+        case .builtInSpeaker: return String(localized: "iPhone Speaker")
+        case .builtInReceiver: return String(localized: "iPhone Earpiece")
+        case .bluetoothA2DP, .bluetoothHFP, .bluetoothLE: return String(localized: "\(output.portName) (Bluetooth)")
+        case .headphones: return String(localized: "\(output.portName) (headphones)")
+        case .usbAudio: return String(localized: "\(output.portName) (USB)")
         default: return output.portName
         }
     }
@@ -837,8 +852,7 @@ final class AudioEngineManager: ObservableObject {
             // an automatic input upgrade still earns an engine rebuild.
             let pinned = (try? applyPreferredInputIfNeeded()) ?? false
             if isRunning && (selectedInputIsMissing || outputIsMissing) {
-                let deviceType = selectedInputIsMissing ? "input" : "output"
-                stopListening(withMessage: "Selected \(deviceType) was disconnected.")
+                stopListening(withMessage: Self.disconnectedMessage(selectedInputMissing: selectedInputIsMissing))
                 return
             }
             if isRunning && pinned {
@@ -865,8 +879,7 @@ final class AudioEngineManager: ObservableObject {
         guard isRunning else { return }
 
         if selectedInputIsMissing || outputIsMissing {
-            let deviceType = selectedInputIsMissing ? "input" : "output"
-            stopListening(withMessage: "Selected \(deviceType) was disconnected.")
+            stopListening(withMessage: Self.disconnectedMessage(selectedInputMissing: selectedInputIsMissing))
             return
         }
 
@@ -880,7 +893,7 @@ final class AudioEngineManager: ObservableObject {
         }
 
         if newSignature != previousSignature {
-            stopListening(withMessage: "Audio route changed. Tap LISTEN to resume.")
+            stopListening(withMessage: String(localized: "Audio route changed. Tap LISTEN to resume."))
         }
     }
 
@@ -911,7 +924,7 @@ final class AudioEngineManager: ObservableObject {
             // call / Siri / other-audio interruption ends.
             wasRunningBeforeInterruption = isRunning
             if isRunning {
-                stopListening(withMessage: "Audio interrupted.")
+                stopListening(withMessage: String(localized: "Audio interrupted."))
             }
         case .ended:
             sessionIsActive = false
@@ -939,7 +952,7 @@ final class AudioEngineManager: ObservableObject {
         sessionIsActive = false
         sessionIsConfigured = false
         isRunning = false
-        errorMessage = "Audio system reset. Tap LISTEN when ready."
+        errorMessage = String(localized: "Audio system reset. Tap LISTEN when ready.")
         updateAudioRoutes()
     }
 

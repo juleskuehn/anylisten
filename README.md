@@ -1,37 +1,74 @@
 # AnyListen
 
-AnyListen is a tiny iPhone-only iOS app that routes the device's microphone (or any
-other selected audio input) to a user-chosen audio output — Bluetooth speaker,
-USB DAC, AirPlay, headphones, etc. — with low latency, no recording, and no
-network.
+<p align="center">
+  <img src="screenshots/hero-framed.png" width="320" alt="AnyListen routing a Wireless ME RX microphone to AirPods, listening enabled">
+</p>
 
-The app is intentionally minimal: a single screen with an input picker, an
-output picker, and a big "Listen" button.
+AnyListen is a small iOS app (iPhone & iPad) that routes a live microphone —
+the built-in mic, a USB interface like a RØDE Wireless ME receiver, a headset,
+or Bluetooth — straight to your headphones, hearing aids, or another audio
+output, in real time. Think of it as Live Listen with any microphone and any
+output you choose.
 
-> All audio stays on-device. The app neither records to disk nor transmits
-> anything off the device.
+> All audio stays on-device. The app never records to disk, never uses the
+> network, and contains no analytics or tracking. See
+> [`AnyListen/PrivacyInfo.xcprivacy`](AnyListen/PrivacyInfo.xcprivacy).
 
-## Features
+## What it does
 
-- Pick from any audio input iOS exposes (built-in mic, USB, BT HFP, headset, …)
-- Pick from any audio output via the system `AVRoutePickerView`
-- Low-latency pass-through (~5 ms I/O buffer)
-- Persistent input selection across launches
-- Smart handling of Bluetooth / AirPods so they don't hijack USB input
-- Soft warnings for missing input or speaker feedback risk
+- **Live pass-through at Live-Listen-level latency.** The engine connects its
+  input node directly to the main mixer — no tap, no player node — so
+  app-added latency is essentially one ~5 ms I/O buffer. Verified on-device
+  side-by-side with Apple's Live Listen (no audible echo).
+- **Input picker with Automatic mode.** Pick a specific input, or leave it on
+  Automatic and the app prefers external mics (USB, headset) over the built-in
+  mic. Your selection persists across launches, and a late-enumerating USB
+  device self-heals within a few seconds of launch.
+- **Output via the system route picker.** AirPods, Bluetooth hearing aids or
+  speakers, USB audio, AirPlay — whatever iOS offers. The app remembers your
+  last external output and flags it as missing if it disappears, rather than
+  silently falling back to the speaker.
+- **Feedback guard.** Listening requires headphones (or another external
+  output). With iPhone mic → iPhone speaker the Listen button stays disabled
+  and the app tells you what to do instead of squealing.
+- **Settings** (gear icon): monitor volume (zero-added-latency gain on the
+  mixer), start listening automatically when your gear is connected, and
+  resume listening after a phone call or other interruption.
+- **Background audio** keeps the loopback running with the screen off or the
+  app backgrounded.
+- **Full state recovery:** route changes, unplugged devices, phone calls, and
+  media-services resets are all handled with a clean stop and a clear
+  explanation — never a stuck "listening" button.
+
+## Screenshots
+
+| Ready to listen | Pick an input | Pick an output |
+|---|---|---|
+| <img src="screenshots/readme/IMG_5684.png" width="220"> | <img src="screenshots/readme/IMG_5686.png" width="220"> | <img src="screenshots/readme/IMG_5687.png" width="220"> |
+
+| Headphones required | Mic went missing | Settings |
+|---|---|---|
+| <img src="screenshots/readme/IMG_5691.png" width="220"> | <img src="screenshots/readme/IMG_5683.png" width="220"> | <img src="screenshots/readme/IMG_5690.png" width="220"> |
+
+Full-resolution captures (1170 × 2532) live in [`screenshots/`](screenshots/);
+`iphone-frame.png` is the mockup frame used for the hero image above.
 
 ## High-level architecture
 
 SwiftUI views drive a single `ObservableObject` — `AudioEngineManager` — which
-in turn manages an `AVAudioEngine` and an `AVAudioSession`. The engine's input
-node is connected *directly* to its main mixer node, producing a real-time
-loopback to the user's chosen output at roughly one I/O buffer (~5 ms) of
-app-added latency — no tap, no player node, no scheduling jitter. This matches
-Live Listen's latency, which is a core requirement (see
+owns an `AVAudioEngine` and an `AVAudioSession`. The engine's input node is
+connected *directly* to its main mixer node, producing a real-time loopback to
+the user's chosen output at roughly one I/O buffer (~5 ms) of app-added
+latency — no tap, no player node, no scheduling jitter. This matches Live
+Listen's latency, which is a hard requirement (see
 [`docs/ROADMAP.md`](docs/ROADMAP.md)).
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full picture, or
-the [`docs/README.md`](docs/README.md) table of contents.
+Output selection is owned by iOS through `AVRoutePickerView`; the app never
+re-activates the session while it's alive, so the user's route choice survives
+stop/start. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
+[`docs/AUDIO_PIPELINE.md`](docs/AUDIO_PIPELINE.md) for the full picture,
+including why Bluetooth HFP is opt-in only (so AirPods can't hijack a USB
+input).
 
 ## Project layout
 
@@ -40,8 +77,12 @@ AnyListen/
 ├── AnyListenApp.swift          # @main entry point
 ├── AudioEngineManager.swift    # Core audio / AVAudioSession logic
 ├── AudioRoutePicker.swift      # SwiftUI wrapper around AVRoutePickerView
-├── ContentView.swift           # The single screen
-└── Info.plist                  # Bundle metadata, mic permission, audio BG mode
+├── ContentView.swift           # The single screen + Settings sheet
+├── Localizable.xcstrings       # String catalog (source: English)
+├── InfoPlist.xcstrings         # Localizable Info.plist strings
+├── PrivacyInfo.xcprivacy       # Privacy manifest (no data collection)
+├── Assets.xcassets/            # App icon
+└── Info.plist                  # Generated by XcodeGen — don't hand-edit
 ```
 
 ## Building
@@ -55,21 +96,25 @@ xcodegen generate
 open AnyListen.xcodeproj
 ```
 
-See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for more, including
-deployment-target notes, signing, and the dependency footprint.
+Requires Xcode 15+; deployment target is iOS 17.0 (set explicitly in
+`project.yml`). See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for signing
+and regeneration notes.
 
-## Code review
+## App Store readiness
 
-A focused review — covering correctness, robustness, UX gaps, accessibility,
-localization, and build hygiene — is in
-[`docs/REVIEW.md`](docs/REVIEW.md).
-
-## Status
-
-This is a working prototype. It is not App Store hardened: there is no
-localization, no tests, no telemetry hooks. See REVIEW.md for the gaps.
+- ✅ App icon (1024×1024) in `Assets.xcassets`, wired into the generated
+  project (`ASSETCATALOG_COMPILER_APPICON_NAME`).
+- ✅ Privacy manifest declaring no collected data, no tracking, and the
+  UserDefaults required-reason API usage.
+- ✅ All user-facing strings extracted into `Localizable.xcstrings` /
+  `InfoPlist.xcstrings` — the app ships English-only for v1, but adding a
+  language is now a data-only change in the catalogs.
+- ✅ iPhone + iPad (`TARGETED_DEVICE_FAMILY: "1,2"`), portrait.
+- ❌ No test target yet (see [`docs/REVIEW.md`](docs/REVIEW.md) L3).
 
 The App Store listing (store name, subtitle, search keywords, category) is
 decided and recorded in [`docs/APP_STORE.md`](docs/APP_STORE.md). Those
 fields live in App Store Connect, not in this repo — the on-device name
-stays "AnyListen".
+stays "AnyListen". A focused review of remaining gaps is in
+[`docs/REVIEW.md`](docs/REVIEW.md); the doc index is
+[`docs/README.md`](docs/README.md).

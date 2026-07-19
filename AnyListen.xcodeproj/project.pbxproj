@@ -9,18 +9,24 @@
 /* Begin PBXBuildFile section */
 		08BCC464FFF656531430AE94 /* AnyListenApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33AE998B260CE9AE96012CE6 /* AnyListenApp.swift */; };
 		24AF10A83F42262457089120 /* AudioRoutePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 049DB9D9A58CACBD61F86C5A /* AudioRoutePicker.swift */; };
+		484F95B4638B4634D42FDE52 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A2641E836A002AC94EA63DCF /* PrivacyInfo.xcprivacy */; };
+		8684B5AD29E1227797CC07C8 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = EB6A762B21D3774269219209 /* InfoPlist.xcstrings */; };
 		8A53AB3ECDE70A6FF4813F34 /* AudioEngineManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74C6386E45329A7CE03D613C /* AudioEngineManager.swift */; };
 		8FFD4AE51F5F671D3CD9ED0B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3D1D076041BEBBC84C52CF8A /* Assets.xcassets */; };
+		969D48287506D4899511DE98 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 264B14502026B0BF657DC565 /* Localizable.xcstrings */; };
 		EA05425656481BC21BF3E22F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA69545B4A4E2F1476E1B15E /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		049DB9D9A58CACBD61F86C5A /* AudioRoutePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutePicker.swift; sourceTree = "<group>"; };
+		264B14502026B0BF657DC565 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		33AE998B260CE9AE96012CE6 /* AnyListenApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyListenApp.swift; sourceTree = "<group>"; };
 		3D1D076041BEBBC84C52CF8A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		74C6386E45329A7CE03D613C /* AudioEngineManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngineManager.swift; sourceTree = "<group>"; };
-		754ADE6ECF3607261A986529 /* AnyListen.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AnyListen.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		754ADE6ECF3607261A986529 /* AnyListen.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AnyListen.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2641E836A002AC94EA63DCF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BA69545B4A4E2F1476E1B15E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		EB6A762B21D3774269219209 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -32,6 +38,9 @@
 				74C6386E45329A7CE03D613C /* AudioEngineManager.swift */,
 				049DB9D9A58CACBD61F86C5A /* AudioRoutePicker.swift */,
 				BA69545B4A4E2F1476E1B15E /* ContentView.swift */,
+				EB6A762B21D3774269219209 /* InfoPlist.xcstrings */,
+				264B14502026B0BF657DC565 /* Localizable.xcstrings */,
+				A2641E836A002AC94EA63DCF /* PrivacyInfo.xcprivacy */,
 			);
 			path = AnyListen;
 			sourceTree = "<group>";
@@ -81,6 +90,11 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					61B2CA5C157C2844D69AA515 = {
+						DevelopmentTeam = 2UD3JL69WU;
+					};
+				};
 			};
 			buildConfigurationList = 59CBF2ED330211493817E456 /* Build configuration list for PBXProject "AnyListen" */;
 			developmentRegion = en;
@@ -107,6 +121,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				8FFD4AE51F5F671D3CD9ED0B /* Assets.xcassets in Resources */,
+				8684B5AD29E1227797CC07C8 /* InfoPlist.xcstrings in Resources */,
+				969D48287506D4899511DE98 /* Localizable.xcstrings in Resources */,
+				484F95B4638B4634D42FDE52 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -187,15 +204,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = X8X322FM4F;
+				DEVELOPMENT_TEAM = 2UD3JL69WU;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AnyListen/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.anylisten.AnyListen;
 				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -205,15 +224,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = X8X322FM4F;
+				DEVELOPMENT_TEAM = 2UD3JL69WU;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AnyListen/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.anylisten.AnyListen;
 				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;

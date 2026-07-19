@@ -87,13 +87,17 @@ registered trademark.
 - [ ] App privacy questionnaire: microphone is used for real-time
       pass-through only; no data is collected, stored, or transmitted
       (matches the privacy section in [`DEVELOPMENT.md`](DEVELOPMENT.md)).
-- [ ] Verify the app icon renders correctly (REVIEW H2 was historically
-      an App Store gate; `AppIcon-1024.png` now exists in
-      `Assets.xcassets` — confirm it is wired into the generated
-      project).
+- [x] App icon: `AppIcon-1024.png` in `Assets.xcassets`, confirmed wired
+      into the generated project (`ASSETCATALOG_COMPILER_APPICON_NAME =
+      AppIcon`).
+- [x] Privacy manifest: `PrivacyInfo.xcprivacy` declares no collected
+      data, no tracking, and the UserDefaults required-reason API
+      (CA92.1). Keep it in sync with the app privacy questionnaire.
 - [ ] Review notes for Apple: describe the app as an audio
       routing/amplification utility, explicitly not a medical device and
       making no medical claims.
 - [ ] Screenshots and description: no medical claims (see list above).
-- [ ] Localization: listing is English-only for v1 (see REVIEW.md
-      localization gap before shipping non-English metadata).
+- [x] Localization readiness: all app strings live in
+      `Localizable.xcstrings` / `InfoPlist.xcstrings` (REVIEW L1
+      resolved). Listing content is English-only for v1; add languages
+      via the catalogs when that changes.
