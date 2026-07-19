@@ -116,6 +116,15 @@ If you add a usage description later (e.g. for Bluetooth), add it to
   currently used; if you add them, they live in the developer
   portal, behind this id.
 
+## App Store metadata
+
+The store **name, subtitle, search keywords, and category are not in this
+repo** — they are entered in App Store Connect at submission time. The
+decided values and rationale are recorded in
+[`APP_STORE.md`](APP_STORE.md). The on-device display name stays
+`AnyListen` via `PRODUCT_NAME`; do not rename the target or `project.yml`
+to match the store listing.
+
 ## Dependencies
 
 Zero third-party dependencies. All frameworks used are first-party:

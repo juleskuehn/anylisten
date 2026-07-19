@@ -10,12 +10,14 @@
 		08BCC464FFF656531430AE94 /* AnyListenApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33AE998B260CE9AE96012CE6 /* AnyListenApp.swift */; };
 		24AF10A83F42262457089120 /* AudioRoutePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 049DB9D9A58CACBD61F86C5A /* AudioRoutePicker.swift */; };
 		8A53AB3ECDE70A6FF4813F34 /* AudioEngineManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74C6386E45329A7CE03D613C /* AudioEngineManager.swift */; };
+		8FFD4AE51F5F671D3CD9ED0B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3D1D076041BEBBC84C52CF8A /* Assets.xcassets */; };
 		EA05425656481BC21BF3E22F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA69545B4A4E2F1476E1B15E /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		049DB9D9A58CACBD61F86C5A /* AudioRoutePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutePicker.swift; sourceTree = "<group>"; };
 		33AE998B260CE9AE96012CE6 /* AnyListenApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyListenApp.swift; sourceTree = "<group>"; };
+		3D1D076041BEBBC84C52CF8A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		74C6386E45329A7CE03D613C /* AudioEngineManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngineManager.swift; sourceTree = "<group>"; };
 		754ADE6ECF3607261A986529 /* AnyListen.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AnyListen.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA69545B4A4E2F1476E1B15E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -26,6 +28,7 @@
 			isa = PBXGroup;
 			children = (
 				33AE998B260CE9AE96012CE6 /* AnyListenApp.swift */,
+				3D1D076041BEBBC84C52CF8A /* Assets.xcassets */,
 				74C6386E45329A7CE03D613C /* AudioEngineManager.swift */,
 				049DB9D9A58CACBD61F86C5A /* AudioRoutePicker.swift */,
 				BA69545B4A4E2F1476E1B15E /* ContentView.swift */,
@@ -57,6 +60,7 @@
 			buildConfigurationList = 42B69D1E27ED17814F24AD4B /* Build configuration list for PBXNativeTarget "AnyListen" */;
 			buildPhases = (
 				E8A98D88E6F32B323732BA65 /* Sources */,
+				F51FA4BC13A19FA1F546709D /* Resources */,
 			);
 			buildRules = (
 			);
@@ -96,6 +100,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F51FA4BC13A19FA1F546709D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8FFD4AE51F5F671D3CD9ED0B /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		E8A98D88E6F32B323732BA65 /* Sources */ = {

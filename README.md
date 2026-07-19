@@ -67,5 +67,9 @@ localization, and build hygiene — is in
 ## Status
 
 This is a working prototype. It is not App Store hardened: there is no
-localization, no asset catalog, no tests, no telemetry hooks. See REVIEW.md
-for the gaps.
+localization, no tests, no telemetry hooks. See REVIEW.md for the gaps.
+
+The App Store listing (store name, subtitle, search keywords, category) is
+decided and recorded in [`docs/APP_STORE.md`](docs/APP_STORE.md). Those
+fields live in App Store Connect, not in this repo — the on-device name
+stays "AnyListen".
