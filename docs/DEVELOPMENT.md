@@ -108,6 +108,8 @@ properties currently set:
 | `UIBackgroundModes` | `[audio]` | Allows the audio session to stay live while the app is in the background or the screen is off. |
 | `UILaunchScreen` | `{}` | Default empty launch screen spec — splash is whatever iOS draws. |
 | `UISupportedInterfaceOrientations` | `[UIInterfaceOrientationPortrait]` | Portrait-only on iPhone. |
+| `UIRequiresFullScreen` | `true` | Portrait-only on iPad requires opting out of multitasking, otherwise App Store upload validation demands all four orientations. Stopgap — see "Deferred: iPad landscape" in [`ROADMAP.md`](ROADMAP.md). |
+| `ITSAppUsesNonExemptEncryption` | `false` | No non-exempt encryption; skips the export-compliance question on every submission. |
 
 If you add a usage description later (e.g. for Bluetooth), add it to
 `project.yml` and run `xcodegen generate` rather than editing

@@ -14,6 +14,14 @@ targets:
         UIBackgroundModes: [audio]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # Portrait-only (incl. iPad) ⇒ opt out of iPad multitasking; App
+        # Store upload validation otherwise demands all four orientations.
+        # NOTE: temporary until iPad landscape is properly supported —
+        # see "Deferred: iPad landscape" in docs/ROADMAP.md.
+        UIRequiresFullScreen: true
+        # No non-exempt encryption ⇒ skips the export-compliance question
+        # on every App Store Connect submission.
+        ITSAppUsesNonExemptEncryption: false
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.anylisten.AnyListen
       DEVELOPMENT_TEAM: 2UD3JL69WU

@@ -54,6 +54,13 @@ avoids the scrutiny that comes with medical claims.
 - ❌ Never in visible metadata, screenshots, or description: "treats
   hearing loss", "medical device", "FDA", "replaces a hearing aid".
 
+The App Store **description** (not indexed; safe for plain language)
+ends with this exact disclaimer line as cheap insurance against
+Guideline 1.4.1 scrutiny:
+
+> AnyListen is not a medical device and is not intended to diagnose,
+> treat, cure, or prevent any disease or hearing condition.
+
 ### "Live Listen" trademark risk
 
 "Live Listen" is an Apple feature name. Using it in the **subtitle**,
@@ -95,7 +102,25 @@ registered trademark.
       (CA92.1). Keep it in sync with the app privacy questionnaire.
 - [ ] Review notes for Apple: describe the app as an audio
       routing/amplification utility, explicitly not a medical device and
-      making no medical claims.
+      making no medical claims. Also explain how to test: no login is
+      needed; connect any headphones (wired or Bluetooth), then tap
+      Start Listening; the speaker route is *intentionally* blocked to
+      prevent feedback; background audio is the intended use.
+- [ ] **Demo video** (required for hardware-dependent features — a
+      reviewer on a stock device sees a disabled Listen button without
+      headphones): record ~30 s of AirPods connecting → Start Listening
+      → live pass-through, and link it in the review notes.
+- [ ] Privacy policy URL: `docs/privacy.html` in this repo, served via
+      GitHub Pages at `https://juleskuehn.github.io/anylisten/privacy.html`
+      (enable: repo Settings → Pages → deploy from branch → main → /docs).
+      The same URL is linked in-app from the Settings sheet.
+- [ ] Support URL: `docs/support.html` →
+      `https://juleskuehn.github.io/anylisten/support.html` (Guideline 1.5:
+      must offer a way to contact the developer).
+- [ ] Screenshots: recapture at the **required** slot sizes — 6.9″
+      iPhone (1320×2868) and 13″ iPad (2064×2732, required because the
+      app declares iPad support). The current 1170×2532 captures only
+      fit optional slots.
 - [ ] Screenshots and description: no medical claims (see list above).
 - [x] Localization readiness: all app strings live in
       `Localizable.xcstrings` / `InfoPlist.xcstrings` (REVIEW L1

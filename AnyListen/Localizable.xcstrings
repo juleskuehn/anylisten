@@ -61,6 +61,16 @@
         }
       }
     },
+    "About" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        }
+      }
+    },
     "Adjusts the volume of the sound sent to your headphones. This can only decrease the volume; use your iPhone's physical volume buttons to increase the maximum sound level." : {
       "localizations" : {
         "en" : {
@@ -77,6 +87,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AnyListen"
+          }
+        }
+      }
+    },
+    "AnyListen collects no data. All audio stays on your device." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AnyListen collects no data. All audio stays on your device."
           }
         }
       }
@@ -402,6 +422,16 @@
         }
       }
     },
+    "Microphone Access" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microphone Access"
+          }
+        }
+      }
+    },
     "Microphone access is required to route audio." : {
       "localizations" : {
         "en" : {
@@ -412,12 +442,32 @@
         }
       }
     },
+    "Microphone access is turned off. AnyListen needs the microphone to route audio — turn it on in Settings." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microphone access is turned off. AnyListen needs the microphone to route audio — turn it on in Settings."
+          }
+        }
+      }
+    },
     "Microphone required" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Microphone required"
+          }
+        }
+      }
+    },
+    "Monitor volume" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monitor volume"
           }
         }
       }
@@ -462,6 +512,26 @@
         }
       }
     },
+    "Open Settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
+          }
+        }
+      }
+    },
+    "Opens the AnyListen page in the Settings app" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the AnyListen page in the Settings app"
+          }
+        }
+      }
+    },
     "off" : {
       "comment" : "Accessibility value: listening is off",
       "localizations" : {
@@ -490,6 +560,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Phone Calls"
+          }
+        }
+      }
+    },
+    "Privacy Policy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy Policy"
           }
         }
       }

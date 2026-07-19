@@ -31,16 +31,33 @@ navigation stacks — the app's job fits in one view.
 └──────────────────────────────────┘
 ```
 
+A fourth, conditional card — **Microphone Access** — appears *above* the
+microphone card when (and only when) mic permission is `.denied` or
+`.restricted`: orange `mic.slash` icon, an explanation, and a full-width
+"Open Settings" button (`UIApplication.openSettingsURLString`). The
+Listen button is disabled in this state with the label "Microphone
+required". This is the single exception to the "no separate warning
+surfaces" rule below, because a denied permission is the one state the
+in-place warnings can't explain or offer a way out of. `.notDetermined`
+does NOT show the card — tapping LISTEN is what triggers the system
+prompt then.
+
 Warning states are shown *in place*: the row's value text turns orange
 ("Wireless ME RX — missing", "Connect headphones") and the Listen button is
 disabled with the reason as its label ("Headphones required", "Microphone
-required"). There are no separate warning banners, and `errorMessage` from
-the manager is deliberately **not rendered** — stop causes are communicated
-via the orange state text and the disabled button label.
+required"). Aside from the permission card above, there are no separate
+warning banners, and `errorMessage` from the manager is deliberately
+**not rendered** — stop causes are communicated via the orange state
+text and the disabled button label.
 
 The whole thing sits on a top-leading → bottom-trailing linear gradient
-between two dark navy stops, inside a `ScrollView` so larger Dynamic Type
-sizes (senior-friendly) don't push the listen button off-screen.
+between two dark navy stops, inside a `ScrollView` so larger Dynamic
+Type sizes (senior-friendly) don't push the listen button off-screen.
+All text sizes are `@ScaledMetric` (relative to the body style), so
+every label scales with Dynamic Type while the default ("Large")
+appearance is pixel-identical to the original fixed sizes; value texts
+use `fixedSize(vertical:)` to wrap instead of truncating, and the
+"Change" button grows from its 118pt minimum instead of clipping.
 
 ## Component breakdown (`ContentView.swift`)
 
@@ -51,8 +68,9 @@ sizes (senior-friendly) don't push the listen button off-screen.
 | `listeningCard` | The LISTENING CONTROL panel. Hosts the listen button and state label; border turns green while running. |
 | `routeRow(...)` | Helper builder. Renders a leading icon, two-line title/value, and a trailing control (any `View`). Marks warning state with orange. |
 | `inputMenu` | SwiftUI `Menu` containing "Automatic" + every device in `availableInputs`, marked with a check when current. |
-| `listenButton` | The big circular 132 × 132 button. If running → `stop()`; else `beginListening()`. Disabled (`isButtonDisabled`) when the selected input is missing, the output is missing, or the route is the same-device loopback — with the reason shown as the label. |
-| `SettingsView` | The gear-icon sheet: monitor-volume slider, "Start listening automatically", and "Resume after phone calls". |
+| `listenButton` | The big circular 132 × 132 button. If running → `stop()`; else `beginListening()`. Disabled (`isButtonDisabled`) when the selected input is missing, the output is missing, the route is the same-device loopback, or mic permission is denied — with the reason shown as the label. |
+| `microphonePermissionCard` | Conditional top card for denied/restricted mic permission: explanation + "Open Settings" button. The only non-`errorMessage` warning surface. |
+| `SettingsView` | The gear-icon sheet: monitor-volume slider, "Start listening automatically", "Resume after phone calls", and an About section linking the privacy policy (GitHub Pages URL; must match App Store Connect). |
 
 Each card is wrapped in the `cardStyle(borderColor:)` helper: a translucent
 fill, a 1pt border (orange when warning, otherwise subtle white), and a 20pt
@@ -144,12 +162,15 @@ user-selected speaker as "X — missing".
 - The Listen button carries `.accessibilityLabel` (Start/Stop listening),
   `.accessibilityHint`, and `.accessibilityValue` (on/off), and start/stop
   is announced via `UIAccessibility.post(.announcement, …)`.
-- The gear button ("Settings") and the route picker ("Select output") are
-  labelled; the route picker's decorative state icon is hidden from
-  VoiceOver.
-- The layout lives in a `ScrollView` so larger Dynamic Type sizes don't
-  push the Listen button off-screen; the gear and Change controls keep
-  44×44 hit targets.
+- The gear button ("Settings"), the route picker ("Select output"), and
+  the monitor-volume slider ("Monitor volume") are labelled; decorative
+  icons are hidden from VoiceOver.
+- **Dynamic Type is fully supported**: all text scales via
+  `@ScaledMetric(relativeTo: .body)`; the layout lives in a `ScrollView`
+  so larger sizes don't push the Listen button off-screen, and the gear,
+  Change, and Open Settings controls keep ≥44pt hit targets.
+- The permission card's "Open Settings" button has an
+  `.accessibilityHint` ("Opens the AnyListen page in the Settings app").
 - Remaining backlog: the mic/speaker rows are still separate elements
   rather than one combined accessible element per row. See
   [`REVIEW.md`](REVIEW.md) L2.

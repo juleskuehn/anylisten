@@ -241,6 +241,19 @@ manual exclude list adds UI weight for little gain.
   connected, the screen should read as "plug in your mic and headphones,"
   not as a ready-to-feedback Listen button.
 
+## Deferred: iPad landscape / multitasking
+
+The app is portrait-only on all devices, so `UIRequiresFullScreen = true`
+is set (App Store upload validation rejects iPad apps that restrict
+orientations without opting out of multitasking). **This is a stopgap.**
+The layout is a simple scrolling stack of cards — there is no fundamental
+reason it can't support landscape on iPad (side-by-side cards or a
+max-width column would both work), and multitasking (Split View) suits the
+"appliance" use case. When that lands: remove `UIRequiresFullScreen` from
+`project.yml` **and** `AnyListen/Info.plist`, add the landscape
+orientations, and re-capture the 13″ iPad screenshots in the supported
+orientations.
+
 ## Doc / hygiene follow-ups
 
 - `docs/ARCHITECTURE.md` and `docs/AUDIO_PIPELINE.md` previously described

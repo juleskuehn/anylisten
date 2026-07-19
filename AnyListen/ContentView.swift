@@ -5,6 +5,16 @@ struct ContentView: View {
     @StateObject private var audioManager = AudioEngineManager()
     @State private var showSettings = false
 
+    // Dynamic Type: every text size scales with the user's preferred text
+    // size (relative to the body style). Each value is the exact size the
+    // layout used before scaling was added, so the default ("Large")
+    // appearance is unchanged — scaling only takes effect at other sizes.
+    @ScaledMetric(relativeTo: .body) private var titleFontSize = 20.0
+    @ScaledMetric(relativeTo: .body) private var sectionLabelFontSize = 12.0
+    @ScaledMetric(relativeTo: .body) private var valueFontSize = 17.0
+    @ScaledMetric(relativeTo: .body) private var bodyFontSize = 15.0
+    @ScaledMetric(relativeTo: .body) private var buttonLabelFontSize = 19.0
+
     var body: some View {
         ZStack {
             LinearGradient(
@@ -25,6 +35,9 @@ struct ContentView: View {
                         .padding(.top, 16)
                         .padding(.bottom, 6)
 
+                    if microphonePermissionDenied {
+                        microphonePermissionCard
+                    }
                     microphoneCard
                     speakerCard
                     listeningCard
@@ -53,7 +66,7 @@ struct ContentView: View {
     private var headerTitle: some View {
         HStack {
             Text("AnyListen")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(.system(size: titleFontSize, weight: .bold, design: .rounded))
                 .foregroundColor(.white.opacity(0.95))
                 .padding(.leading, 8)
             Spacer()
@@ -118,6 +131,58 @@ struct ContentView: View {
         .cardStyle(borderColor: Color.white.opacity(0.10))
     }
 
+    // MARK: - Microphone permission card
+
+    /// Shown only when mic permission is denied/restricted — the one
+    /// state where the orange in-row warnings and the disabled Listen
+    /// button can't explain the situation or offer a way out. This is
+    /// deliberately NOT driven by `errorMessage` (which stays hidden);
+    /// it reacts directly to the permission status.
+    private var microphonePermissionCard: some View {
+        VStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "mic.slash.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.orange)
+                    .frame(width: 30)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Microphone Access")
+                        .font(.system(size: sectionLabelFontSize, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.55))
+                    Text("Microphone access is turned off. AnyListen needs the microphone to route audio — turn it on in Settings.")
+                        .font(.system(size: bodyFontSize))
+                        .foregroundColor(.white.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+            }
+
+            Button {
+                openSystemSettings()
+            } label: {
+                Text("Open Settings")
+                    .font(.system(size: bodyFontSize, weight: .semibold))
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(Color.orange)
+                    .cornerRadius(12)
+            }
+            .accessibilityHint(Text("Opens the AnyListen page in the Settings app"))
+        }
+        .padding(14)
+        .cardStyle(borderColor: Color.orange.opacity(0.45))
+    }
+
+    /// Opens this app's page in the iOS Settings app so the user can
+    /// re-enable microphone access after denying it.
+    private func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
+
     private var listeningCard: some View {
         VStack(spacing: 12) {
             // Title row mirrors the routeRow pattern so the three cards
@@ -130,13 +195,12 @@ struct ContentView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Listening Control")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: sectionLabelFontSize, weight: .semibold))
                         .foregroundColor(.white.opacity(0.55))
                     Text(listeningStateText)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: valueFontSize, weight: .semibold))
                         .foregroundColor(listeningValueColor)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.78)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer(minLength: 8)
@@ -177,10 +241,20 @@ struct ContentView: View {
         outputMissing || outputBlocked
     }
 
-    /// True when the LISTEN control is unavailable (missing mic, missing
-    /// output, or the blocked speaker route).
+    /// True when mic permission has been denied or is restricted — the
+    /// one state that gets a dedicated permission card with a path back
+    /// to Settings. `notDetermined` is NOT included: tapping LISTEN is
+    /// what triggers the system prompt in that case.
+    private var microphonePermissionDenied: Bool {
+        audioManager.microphonePermissionStatus == .denied
+            || audioManager.microphonePermissionStatus == .restricted
+    }
+
+    /// True when the LISTEN control is unavailable (mic permission off,
+    /// missing mic, missing output, or the blocked speaker route).
     private var isButtonDisabled: Bool {
         !audioManager.isRunning && (
+            microphonePermissionDenied ||
             audioManager.selectedInputIsMissing ||
             audioManager.outputIsMissing ||
             outputBlocked
@@ -243,7 +317,7 @@ struct ContentView: View {
                 .animation(.easeInOut(duration: 0.25), value: audioManager.selectedInputIsMissing)
 
                 Text(buttonLabelText)
-                    .font(.system(size: 19, weight: .semibold, design: .rounded))
+                    .font(.system(size: buttonLabelFontSize, weight: .semibold, design: .rounded))
                     .foregroundColor(buttonLabelColor)
                     .animation(.easeInOut(duration: 0.25), value: audioManager.isRunning)
                     .animation(.easeInOut(duration: 0.25), value: audioManager.selectedInputIsMissing)
@@ -266,6 +340,7 @@ struct ContentView: View {
     }
 
     private var buttonLabelText: String {
+        if microphonePermissionDenied { return String(localized: "Microphone required") }
         if inputMissing && headphonesNeeded { return String(localized: "Headphones and microphone required") }
         if inputMissing { return String(localized: "Microphone required") }
         if headphonesNeeded { return String(localized: "Headphones required") }
@@ -317,13 +392,12 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: sectionLabelFontSize, weight: .semibold))
                     .foregroundColor(.white.opacity(0.55))
                 Text(value)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: valueFontSize, weight: .semibold))
                     .foregroundColor(isWarning ? .orange : .white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.78)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 8)
@@ -360,12 +434,13 @@ struct ContentView: View {
         } label: {
             HStack(spacing: 6) {
                 Text("Change")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: bodyFontSize, weight: .semibold))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 11, weight: .bold))
             }
             .foregroundColor(.white)
-            .frame(width: 118, height: 44)
+            .padding(.horizontal, 12)
+            .frame(minWidth: 118, minHeight: 44)
             .background(Color.white.opacity(0.12))
             .cornerRadius(12)
         }
@@ -392,6 +467,11 @@ private extension View {
 // MARK: - Settings
 
 struct SettingsView: View {
+    /// Hosted from this repo via GitHub Pages (`docs/privacy.html`). Must
+    /// match the privacy URL entered in App Store Connect — see
+    /// [`docs/APP_STORE.md`](../docs/APP_STORE.md).
+    private static let privacyPolicyURL = URL(string: "https://juleskuehn.github.io/anylisten/privacy.html")!
+
     @ObservedObject var audioManager: AudioEngineManager
     @Environment(\.dismiss) private var dismiss
 
@@ -404,6 +484,7 @@ struct SettingsView: View {
                             .foregroundColor(.gray)
                         Slider(value: $audioManager.monitorVolume, in: 0.0...1.0)
                             .tint(.green)
+                            .accessibilityLabel(Text("Monitor volume"))
                         Image(systemName: "speaker.wave.3.fill")
                             .foregroundColor(.gray)
                     }
@@ -429,6 +510,16 @@ struct SettingsView: View {
                     Text("Phone Calls")
                 } footer: {
                     Text("When a phone call or other interruption ends, the app will automatically start listening again.")
+                }
+
+                Section {
+                    Link(destination: Self.privacyPolicyURL) {
+                        Label("Privacy Policy", systemImage: "hand.raised.fill")
+                    }
+                } header: {
+                    Text("About")
+                } footer: {
+                    Text("AnyListen collects no data. All audio stays on your device.")
                 }
             }
             .navigationTitle("Settings")

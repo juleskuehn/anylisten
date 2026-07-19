@@ -12,7 +12,9 @@ output you choose.
 
 > All audio stays on-device. The app never records to disk, never uses the
 > network, and contains no analytics or tracking. See
-> [`AnyListen/PrivacyInfo.xcprivacy`](AnyListen/PrivacyInfo.xcprivacy).
+> [`AnyListen/PrivacyInfo.xcprivacy`](AnyListen/PrivacyInfo.xcprivacy),
+> the [privacy policy](docs/privacy.html) and the
+> [support page](docs/support.html) (both served via GitHub Pages).
 
 ## What it does
 
@@ -105,14 +107,29 @@ and regeneration notes.
 
 ## App Store readiness
 
-- ✅ App icon (1024×1024) in `Assets.xcassets`, wired into the generated
-  project (`ASSETCATALOG_COMPILER_APPICON_NAME`).
+- ✅ App icon (1024×1024) in `Assets.xcassets` — **opaque RGB, no alpha
+  channel or rounded corners** (App Store ITMS-90717 rules), wired into
+  the generated project (`ASSETCATALOG_COMPILER_APPICON_NAME`). Source
+  layers for a future Icon Composer (Liquid Glass) variant live in
+  [`design/icon/`](design/icon/).
 - ✅ Privacy manifest declaring no collected data, no tracking, and the
   UserDefaults required-reason API usage.
+- ✅ Privacy policy + support pages in `docs/` (`privacy.html`,
+  `support.html`), linked in-app from the Settings sheet and entered as
+  the App Store Connect privacy/support URLs.
+- ✅ Microphone-denied state has a dedicated card with an "Open
+  Settings" remediation path; all other stop causes stay in-place
+  (orange state text + disabled-button reason) by design.
+- ✅ Dynamic Type: all text scales (`@ScaledMetric`), controls keep ≥44pt
+  targets; VoiceOver labels/hints/announcements throughout.
 - ✅ All user-facing strings extracted into `Localizable.xcstrings` /
   `InfoPlist.xcstrings` — the app ships English-only for v1, but adding a
   language is now a data-only change in the catalogs.
-- ✅ iPhone + iPad (`TARGETED_DEVICE_FAMILY: "1,2"`), portrait.
+- ✅ iPhone + iPad (`TARGETED_DEVICE_FAMILY: "1,2"`), portrait-only with
+  `UIRequiresFullScreen` (stopgap — see "Deferred: iPad landscape" in
+  [`docs/ROADMAP.md`](docs/ROADMAP.md)).
+- ✅ `ITSAppUsesNonExemptEncryption = false` — no export-compliance
+  question per submission.
 - ❌ No test target yet (see [`docs/REVIEW.md`](docs/REVIEW.md) L3).
 
 The App Store listing (store name, subtitle, search keywords, category) is
