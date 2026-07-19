@@ -96,7 +96,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AnyListen collects no data. All audio stays on your device."
+            "value": "AnyListen does not collect any data. All audio stays on your device."
           }
         }
       }
@@ -156,7 +156,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatic Start"
+            "value": "Automatic start"
           }
         }
       }
@@ -527,7 +527,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Phone Calls"
+            "value": "Phone calls"
           }
         }
       }
@@ -537,7 +537,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Privacy Policy"
+            "value": "Privacy policy"
           }
         }
       }
