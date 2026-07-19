@@ -337,10 +337,12 @@ struct ContentView: View {
     }
 
     private func warningText(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundColor(.orange)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 30) // Matches the 30pt width of the main category icons above!
+            
             Text(text)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.orange)
