@@ -65,6 +65,19 @@ final class AudioEngineManager: ObservableObject {
     private let selectedInputIDKey = "AnyListen.selectedInputID"
     private let selectedInputNameKey = "AnyListen.selectedInputName"
 
+    // Remember the LAST external (non-built-in) input/output that was
+    // actually routed, whether explicitly chosen by the user or
+    // auto-upgraded by iOS. Kept across launches. When that device
+    // disappears from `availableInputs` / `availableOutputs` we flag a
+    // "missing" state in the UI instead of letting iOS silently
+    // fall back to the iPhone mic/speaker — because the primary use
+    // case is "external mic → external output" and a silent fallback
+    // to internal hardware is exactly the wrong direction.
+    private let lastExternalInputIDKey = "AnyListen.lastExternalInputID"
+    private let lastExternalInputNameKey = "AnyListen.lastExternalInputName"
+    private let lastExternalOutputIDKey = "AnyListen.lastExternalOutputID"
+    private let lastExternalOutputNameKey = "AnyListen.lastExternalOutputName"
+
     // MARK: - Owned audio objects
 
     private var audioEngine: AVAudioEngine?
@@ -101,6 +114,25 @@ final class AudioEngineManager: ObservableObject {
     @Published var errorMessage: String? = nil
     @Published var microphonePermissionStatus: AVAuthorizationStatus = .notDetermined
 
+    /// Last observed non-built-in input port (whether chosen explicitly or
+    /// auto-upgraded). Persisted across launches. Used in Automatic mode
+    /// to keep showing the user that their preferred external mic is
+    /// missing rather than silently displaying the iPhone mic.
+    @Published var lastExternalInputID: String? = nil
+    @Published var lastExternalInputName: String? = nil
+    /// Same concept for output. We don't have an explicit "selected
+    /// output" because iOS routes outputs through `AVRoutePickerView`,
+    /// but iOS persists the user's AirPlay choice and will re-route to
+    /// it when the device is back in range. We mirror that.
+    @Published var lastExternalOutputID: String? = nil
+    @Published var lastExternalOutputName: String? = nil
+    /// True when iOS has routed to a built-in device (iPhone mic /
+    /// speaker) AND we previously had an external device that is no
+    /// longer in `availableInputs`/`availableOutputs`. This is the
+    /// "you unplugged your USB mic / walked away from your AirPods"
+    /// miss-the-external state.
+    @Published var outputIsMissing: Bool = false
+
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
@@ -108,6 +140,10 @@ final class AudioEngineManager: ObservableObject {
     init() {
         selectedInputID = UserDefaults.standard.string(forKey: selectedInputIDKey)
         selectedInputName = UserDefaults.standard.string(forKey: selectedInputNameKey)
+        lastExternalInputID = UserDefaults.standard.string(forKey: lastExternalInputIDKey)
+        lastExternalInputName = UserDefaults.standard.string(forKey: lastExternalInputNameKey)
+        lastExternalOutputID = UserDefaults.standard.string(forKey: lastExternalOutputIDKey)
+        lastExternalOutputName = UserDefaults.standard.string(forKey: lastExternalOutputNameKey)
         checkMicrophonePermission()
         setupNotifications()
 
@@ -533,6 +569,16 @@ final class AudioEngineManager: ObservableObject {
             AudioInputDevice(id: $0.uid, name: $0.portName, typeName: Self.readableInputType($0.portType))
         }
 
+        // -- INPUT ----------------------------------------------------------
+        // Three branches:
+        //  1. `selectedInputID` set (explicit): respect the explicit choice;
+        //     flag missing if not in availableInputs.
+        //  2. Automatic mode AND current route is non-built-in: remember
+        //     this device so we can flag missing on disconnect later.
+        //  3. Automatic mode AND current route fell back to built-in: if
+        //     we previously had an external AND it's no longer in
+        //     availableInputs, flag missing (this is the "USB mic was
+        //     unplugged" path the user asked about).
         if let sid = selectedInputID {
             if let live = availableInputs.first(where: { $0.id == sid }) {
                 selectedInputIsMissing = false
@@ -542,21 +588,82 @@ final class AudioEngineManager: ObservableObject {
                 currentInputName = "\(selectedInputName ?? "Selected input") — missing"
             }
         } else if let current = session.currentRoute.inputs.first {
-            selectedInputIsMissing = false
-            currentInputName = current.portName
+            if current.portType != .builtInMic {
+                saveLastExternalInput(id: current.uid, name: current.portName)
+                selectedInputIsMissing = false
+                currentInputName = current.portName
+            } else {
+                // iOS auto-fell-back to iPhone mic. Was our remembered
+                // external a real device that's now unreachable?
+                if let lastID = lastExternalInputID,
+                   !inputs.contains(where: { $0.id == lastID }) {
+                    selectedInputIsMissing = true
+                    currentInputName = "\(lastExternalInputName ?? "External microphone") — missing"
+                } else {
+                    selectedInputIsMissing = false
+                    currentInputName = current.portName
+                }
+            }
         } else if let best = Self.bestAutomaticInput(from: inputs) {
+            if best.portType != .builtInMic {
+                saveLastExternalInput(id: best.uid, name: best.portName)
+            }
+            selectedInputIsMissing = false
             currentInputName = best.portName
         } else {
             currentInputName = "No input available"
+            selectedInputIsMissing = false
         }
 
-        if let firstOutput = session.currentRoute.outputs.first {
-            currentOutputName = Self.readableOutputName(firstOutput)
-            outputMayCauseFeedback = firstOutput.portType == .builtInSpeaker
+        // -- OUTPUT ---------------------------------------------------------
+        // Symmetric to input: iOS often auto-routes to AirPods /
+        // connected BT/USB audio, and falls back to the built-in speaker
+        // when they go away. We mirror the user's most recent
+        // non-built-in output so we can flag it as missing instead of
+        // silently accepting the fallback.
+        let availableOutputs = session.availableOutputs ?? []
+        if let currentOutput = session.currentRoute.outputs.first {
+            if currentOutput.portType == .builtInSpeaker {
+                if let lastID = lastExternalOutputID,
+                   !availableOutputs.contains(where: { $0.uid == lastID }) {
+                    // Last external is gone, iOS has reverted to speaker.
+                    outputIsMissing = true
+                    currentOutputName = "\(lastExternalOutputName ?? "External output") — missing"
+                } else {
+                    // No remembered external, OR remembered external is
+                    // still in availableOutputs (paired, just not yet
+                    // routed). Don't alarm the user.
+                    outputIsMissing = false
+                    currentOutputName = Self.readableOutputName(currentOutput)
+                }
+            } else {
+                saveLastExternalOutput(id: currentOutput.uid, name: currentOutput.portName)
+                outputIsMissing = false
+                currentOutputName = Self.readableOutputName(currentOutput)
+            }
+            // Feedback risk only applies when the speaker is genuinely
+            // the selected output — not when it's only the iOS fallback
+            // while we're telling the user "your external is missing".
+            outputMayCauseFeedback = currentOutput.portType == .builtInSpeaker && !outputIsMissing
         } else {
             currentOutputName = "No output available"
             outputMayCauseFeedback = false
+            outputIsMissing = false
         }
+    }
+
+    private func saveLastExternalInput(id: String, name: String) {
+        lastExternalInputID = id
+        lastExternalInputName = name
+        UserDefaults.standard.set(id, forKey: lastExternalInputIDKey)
+        UserDefaults.standard.set(name, forKey: lastExternalInputNameKey)
+    }
+
+    private func saveLastExternalOutput(id: String, name: String) {
+        lastExternalOutputID = id
+        lastExternalOutputName = name
+        UserDefaults.standard.set(id, forKey: lastExternalOutputIDKey)
+        UserDefaults.standard.set(name, forKey: lastExternalOutputNameKey)
     }
 
     private static func readableInputType(_ portType: AVAudioSession.Port) -> String {

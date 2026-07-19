@@ -83,12 +83,13 @@ struct ContentView: View {
                 title: "Speaker or Headphones",
                 value: audioManager.currentOutputName,
                 icon: "speaker.wave.2.fill",
-                // No row tint for the "selected but feedback-prone" case: the
-                // output IS working and selected, so the icon + value stay
-                // in their normal cyan/white tones. Attention is drawn by the
-                // orange card border and the warning text below instead of
-                // making the row look like the device is missing.
-                isWarning: false
+                // Tint orange only when the output is genuinely MISSING
+                // (i.e. the user's last AirPods/BT/USB headphones have
+                // disappeared and iOS has fallen back to the speaker).
+                // The "working output but feedback-prone" case keeps the
+                // row in normal cyan/white tones, with the warning text
+                // below handling the heads-up.
+                isWarning: audioManager.outputIsMissing
             ) {
                 AudioRoutePicker()
                     .frame(width: 52, height: 44)
@@ -97,14 +98,19 @@ struct ContentView: View {
                     .accessibilityLabel("Select output")
             }
 
-            // Feedback warning lives inside the speaker card, scoped to the
-            // device that creates the risk.
-            if audioManager.outputMayCauseFeedback {
+            // Missing takes precedence over feedback: if the user's
+            // preferred output is gone, that's the more urgent message.
+            if audioManager.outputIsMissing {
+                warningText("Selected speaker is missing. Reconnect it or choose a different output.")
+            } else if audioManager.outputMayCauseFeedback {
                 warningText("Speaker output can cause feedback. Use headphones, Bluetooth, or USB output when possible.")
             }
         }
         .padding(14)
-        .cardStyle(borderColor: cardBorderColor(forWarning: audioManager.outputMayCauseFeedback))
+        .cardStyle(borderColor: cardBorderColor(
+            forWarning: audioManager.outputIsMissing || audioManager.outputMayCauseFeedback
+        ))
+        .animation(.easeInOut(duration: 0.25), value: audioManager.outputIsMissing)
         .animation(.easeInOut(duration: 0.25), value: audioManager.outputMayCauseFeedback)
     }
 
