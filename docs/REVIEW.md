@@ -473,3 +473,41 @@ pinning the newly-enumerated device.
 `ensureSessionConfigured`; polling ticks also retry activation if it
 hasn't stuck; polling extended to 10 s and also runs on every
 foregrounding.
+
+---
+
+## Bug fixes (round 5 — unified "speaker route = blocked")
+
+**Symptom:** open the output picker, select "iPhone Speaker" while AirPods
+are connected → the speaker card read "Jules's AirPods — missing", which
+was false: the AirPods were still connected, just not selected.
+
+**Root cause:** `updateAudioRoutes` inferred "missing" whenever the route
+was the built-in speaker and the remembered external output wasn't in
+`currentRoute.outputs` — but that list only ever contains the *routed*
+device (there is no `availableOutputs` API). Picking the speaker in the
+picker and the AirPods genuinely disconnecting look identical through that
+lens. The same heuristic also under-blocked the opposite edge: with no
+remembered external output, speaker monitoring was silently allowed with a
+USB mic.
+
+**Fix:**
+- ANY built-in-speaker route is now a blocked state (`outputIsBlocked`):
+  the speaker card shows "Connect headphones" in orange and Listen is
+  disabled with "Headphones required" — regardless of input device or
+  history. This subsumes the old iPhone-mic→speaker `isDangerousLoopback`
+  guard (removed, along with the dead `outputMayCauseFeedback`).
+- "X — missing" is reserved for an OBSERVED device loss: a route change
+  with reason `.oldDeviceUnavailable` whose PREVIOUS route contained an
+  external output (`externalOutputObservedLost`). Route-change reason
+  codes — deliberately not trusted for the stop policy — are exactly the
+  right signal for this narrow classification. A `.override` (user picked
+  the speaker) explicitly clears the flag.
+- Selecting the speaker mid-listen still stops audio via the existing
+  route-change stop policy; the silence-window path now also stops when
+  landing on the speaker, closing a brief feedback-screech race right
+  after tapping LISTEN.
+- Auto-listen and post-interruption auto-resume use the same guards, so
+  they can never start onto the speaker.
+- Note: programmatic "bounce back to AirPods" is impossible on iOS (no
+  API to set the output route), so guidance is the only corrective lever.

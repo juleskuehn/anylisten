@@ -35,8 +35,8 @@ Warning states are shown *in place*: the row's value text turns orange
 ("Wireless ME RX — missing", "Connect headphones") and the Listen button is
 disabled with the reason as its label ("Headphones required", "Microphone
 required"). There are no separate warning banners, and `errorMessage` from
-the manager is currently **not rendered** — stop causes are communicated via
-the orange state text and the disabled button label.
+the manager is deliberately **not rendered** — stop causes are communicated
+via the orange state text and the disabled button label.
 
 The whole thing sits on a top-leading → bottom-trailing linear gradient
 between two dark navy stops, inside a `ScrollView` so larger Dynamic Type
@@ -47,7 +47,7 @@ sizes (senior-friendly) don't push the listen button off-screen.
 | Subview | Role |
 |---------|------|
 | `microphoneCard` | The MICROPHONE panel. Hosts the input menu; value text goes orange with a "— missing" suffix when the selected mic is gone. |
-| `speakerCard` | The SPEAKER OR HEADPHONES panel. Hosts `AudioRoutePicker`; shows "Connect headphones" in orange while the route is iPhone mic → iPhone speaker. |
+| `speakerCard` | The SPEAKER OR HEADPHONES panel. Hosts `AudioRoutePicker`; shows "Connect headphones" in orange whenever the speaker is routed (blocked), or "X — missing" when the external output was observed going away. |
 | `listeningCard` | The LISTENING CONTROL panel. Hosts the listen button and state label; border turns green while running. |
 | `routeRow(...)` | Helper builder. Renders a leading icon, two-line title/value, and a trailing control (any `View`). Marks warning state with orange. |
 | `inputMenu` | SwiftUI `Menu` containing "Automatic" + every device in `availableInputs`, marked with a check when current. |
@@ -78,14 +78,14 @@ Reactions:
   ("Listening started" / "Listening stopped").
 - The listen button consults `isRunning` (drives label, fill, and whether a
   tap stops or starts) and is disabled via `isButtonDisabled`, which is true
-  when `selectedInputIsMissing`, `outputIsMissing`, or `isDangerousLoopback`
-  (iPhone mic → iPhone speaker) holds while not running.
+  when `selectedInputIsMissing`, `outputIsMissing`, or `outputIsBlocked`
+  (speaker routed) holds while not running.
 - The microphone card renders its value in orange when
   `selectedInputIsMissing` is true.
-- The speaker card renders its value in orange when `outputIsMissing` (a
-  remembered external output has vanished and iOS fell back to the speaker)
-  or `isDangerousLoopback` — the latter replacing the value text with
-  "Connect headphones".
+- The speaker card renders its value in orange when `outputIsMissing` (the
+  previously routed external output was observed going away) or
+  `outputIsBlocked` (speaker routed) — the latter replacing the value text
+  with "Connect headphones". Missing takes precedence in the text.
 
 Cross-flow that *could* feel surprising:
 
@@ -116,19 +116,28 @@ workaround is described in the comment on `layoutSubviews`. There is no
 `AVRoutePickerView` is private; brute-force mass-resize is the
 documented workaround used elsewhere too.
 
-## Feedback guard UX
+## Blocked-output UX (speaker route)
 
-The same-device loopback case (iPhone mic → iPhone speaker, the default
-state on first launch with nothing plugged in) is **blocked, not warned
-about**: `isDangerousLoopback` disables the Listen button, the speaker card
-shows "Connect headphones" in orange, and the button label reads
-"Headphones required". This replaced an earlier design that showed a scary
-confirm alert with a "Listen Anyway" escape hatch (shipped per
-[`ROADMAP.md`](ROADMAP.md) P1, except the "allow same-device loopback"
-override toggle, which was not added — the guard is always on).
+Listening requires an external output, so **any** built-in-speaker route is
+blocked, not warned about: `outputIsBlocked` disables the Listen button,
+the speaker card shows "Connect headphones" in orange, and the button label
+reads "Headphones required". This covers every way of landing on the
+speaker — first launch with nothing connected (the old "dangerous
+loopback" case), or deliberately picking "iPhone Speaker" in the route
+picker. Picking the speaker is a real, visible action (listening stops and
+the UI turns orange), but the app never claims the headphones are
+"missing" — they may well still be connected, just not selected.
 
-`AudioEngineManager.outputMayCauseFeedback` still tracks the speaker-routed
-state but currently has no consumer in the view.
+The "X — missing" output state is reserved for an *observed* device loss:
+a route change with reason `.oldDeviceUnavailable` while actually routed
+to that device (tracked via `externalOutputObservedLost`; see
+`AudioEngineManager.updateExternalOutputLossState`). There is no
+`availableOutputs` API, so the route alone can't distinguish the two cases
+— the route-change reason can.
+
+This replaced an earlier design that showed a scary confirm alert with a
+"Listen Anyway" escape hatch, and a later heuristic that misreported a
+user-selected speaker as "X — missing".
 
 ## Accessibility
 

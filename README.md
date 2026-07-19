@@ -25,12 +25,15 @@ output you choose.
   mic. Your selection persists across launches, and a late-enumerating USB
   device self-heals within a few seconds of launch.
 - **Output via the system route picker.** AirPods, Bluetooth hearing aids or
-  speakers, USB audio, AirPlay — whatever iOS offers. The app remembers your
-  last external output and flags it as missing if it disappears, rather than
-  silently falling back to the speaker.
-- **Feedback guard.** Listening requires headphones (or another external
-  output). With iPhone mic → iPhone speaker the Listen button stays disabled
-  and the app tells you what to do instead of squealing.
+  speakers, USB audio, AirPlay — whatever iOS offers. If your headphones
+  disconnect mid-session, the app says so ("Jules's AirPods — missing")
+  instead of pretending nothing happened.
+- **Speaker route = blocked.** Listening requires headphones (or another
+  external output) — full stop. Whenever the iPhone speaker is the selected
+  output, the Listen button stays disabled and the app says "Connect
+  headphones", whether you have no headphones connected or simply picked
+  the speaker in the picker yourself. No feedback screech, no false
+  "missing" claims.
 - **Settings** (gear icon): monitor volume (zero-added-latency gain on the
   mixer), start listening automatically when your gear is connected, and
   resume listening after a phone call or other interruption.

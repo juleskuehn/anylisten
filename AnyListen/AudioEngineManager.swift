@@ -39,6 +39,21 @@ struct AudioInputDevice: Identifiable, Equatable {
 ///    Live Listen. `engine.connect(inputNode → mainMixerNode)` costs
 ///    roughly one I/O buffer (~5 ms) and removes `removeTap`-while-
 ///    running (a freeze candidate) from the code entirely.
+///
+/// 5. **Speaker route = blocked, period — "Connect headphones".**
+///    Listening requires an external output (headphones / BT / USB /
+///    AirPlay). Whenever iOS lands on the built-in speaker the Listen
+///    button is disabled — whether the mic is built-in (feedback-prone
+///    loopback) or external (speaker monitoring is not a supported
+///    mode). Selecting the speaker in the route picker is NOT reported
+///    as "X — missing": the headphones are still connected, just not
+///    selected, and claiming otherwise is false. The "— missing" output
+///    state is reserved for an OBSERVED device loss (a route change
+///    with reason `.oldDeviceUnavailable` while routed to that device),
+///    the only case where it's known true. (There is no
+///    `availableOutputs` API, so `currentRoute.outputs` alone can't
+///    distinguish "user chose speaker" from "device vanished" — the
+///    route-change reason can.)
 final class AudioEngineManager: ObservableObject {
 
     // MARK: - Tunables
@@ -118,7 +133,6 @@ final class AudioEngineManager: ObservableObject {
     @Published var selectedInputID: String? = nil
     @Published var selectedInputName: String? = nil
     @Published var selectedInputIsMissing: Bool = false
-    @Published var outputMayCauseFeedback: Bool = false
     @Published var errorMessage: String? = nil
     @Published var microphonePermissionStatus: AVAuthorizationStatus = .notDetermined
 
@@ -134,17 +148,28 @@ final class AudioEngineManager: ObservableObject {
     /// it when the device is back in range. We mirror that.
     @Published var lastExternalOutputID: String? = nil
     @Published var lastExternalOutputName: String? = nil
-    /// True when iOS has routed to a built-in device (iPhone mic /
-    /// speaker) AND we previously had an external device that is no
-    /// longer in `availableInputs`/`availableOutputs`. This is the
-    /// "you unplugged your USB mic / walked away from your AirPods"
-    /// miss-the-external state.
+    /// True when we OBSERVED the previously routed external output being
+    /// taken away (`.oldDeviceUnavailable` while routed to it) and iOS
+    /// fell back to the speaker. Shown as "X — missing". Deliberately
+    /// NOT set when the user picks the speaker in the route picker —
+    /// that's `outputIsBlocked`, and the headphones aren't missing at
+    /// all in that case. See `updateExternalOutputLossState`.
     @Published var outputIsMissing: Bool = false
 
-    /// True when the current route is iPhone mic → iPhone speaker
-    /// (feedback-prone and virtually always unwanted). Updated in
-    /// `updateAudioRoutes` so the view can disable the Listen button.
-    @Published var isDangerousLoopback: Bool = false
+    /// True when the current route output is the built-in speaker (and
+    /// we're not in the observed-loss "missing" state). Listening is
+    /// blocked here: the speaker card shows "Connect headphones" in
+    /// orange and the Listen button is disabled with "Headphones
+    /// required". This unifies the old iPhone-mic→speaker "dangerous
+    /// loopback" guard with every other way of landing on the speaker.
+    @Published var outputIsBlocked: Bool = false
+
+    /// Set when a route change with reason `.oldDeviceUnavailable` moves
+    /// us off a routed external output onto the speaker; cleared when
+    /// any external output is routed again or the user overrides to the
+    /// speaker. In-memory only: at launch a speaker route reads as
+    /// blocked ("Connect headphones"), never "missing".
+    private var externalOutputObservedLost = false
 
     /// User settings (persisted via Combine observers; see
     /// `setupSettingObservers`). See SettingsView.
@@ -418,7 +443,7 @@ final class AudioEngineManager: ObservableObject {
         guard autoListenEnabled, !isRunning else { return }
         guard !hasManuallyStopped else { return }
         guard microphonePermissionStatus == .authorized else { return }
-        guard !selectedInputIsMissing, !isDangerousLoopback else { return }
+        guard !selectedInputIsMissing, !outputIsMissing else { return }
         // Only auto-start when routing to an external (non-built-in)
         // output — headphones / Bluetooth / USB — never the iPhone speaker.
         let route = AVAudioSession.sharedInstance().currentRoute
@@ -734,50 +759,75 @@ final class AudioEngineManager: ObservableObject {
         }
 
         // -- OUTPUT ---------------------------------------------------------
-        // Symmetric to input: iOS often auto-routes to AirPods /
-        // connected BT/USB audio, and falls back to the built-in speaker
-        // when they go away. We mirror the user's most recent
-        // non-built-in output so we can flag it as missing instead of
-        // silently accepting the fallback.
-        // AVAudioSession has no `availableOutputs` API; use the currently
-        // routed outputs. In this branch the route is the built-in speaker,
-        // so a remembered external that isn't routed reads as missing.
-        let availableOutputs = session.currentRoute.outputs
+        // Speaker route = blocked, period: listening requires an external
+        // output (design note 5). The view turns that state into
+        // "Connect headphones" + a disabled Listen button. The single
+        // exception to the message is an OBSERVED loss of the previously
+        // routed external output (see `updateExternalOutputLossState`),
+        // which names the device: "X — missing".
         if let currentOutput = session.currentRoute.outputs.first {
             if currentOutput.portType == .builtInSpeaker {
-                if let lastID = lastExternalOutputID,
-                   !availableOutputs.contains(where: { $0.uid == lastID }) {
-                    // Last external is gone, iOS has reverted to speaker.
+                if externalOutputObservedLost, let lostName = lastExternalOutputName {
                     outputIsMissing = true
-                    currentOutputName = Self.missingDisplayName(lastExternalOutputName ?? String(localized: "External output"))
+                    currentOutputName = Self.missingDisplayName(lostName)
                 } else {
-                    // No remembered external, OR remembered external is
-                    // still in availableOutputs (paired, just not yet
-                    // routed). Don't alarm the user.
                     outputIsMissing = false
                     currentOutputName = Self.readableOutputName(currentOutput)
                 }
+                outputIsBlocked = !outputIsMissing
             } else {
+                // An external output is routed: any observed loss is
+                // resolved by definition.
+                externalOutputObservedLost = false
                 saveLastExternalOutput(id: currentOutput.uid, name: currentOutput.portName)
                 outputIsMissing = false
+                outputIsBlocked = false
                 currentOutputName = Self.readableOutputName(currentOutput)
             }
-            // Feedback risk only applies when the speaker is genuinely
-            // the selected output — not when it's only the iOS fallback
-            // while we're telling the user "your external is missing".
-            outputMayCauseFeedback = currentOutput.portType == .builtInSpeaker && !outputIsMissing
         } else {
             currentOutputName = String(localized: "No output available")
-            outputMayCauseFeedback = false
             outputIsMissing = false
+            outputIsBlocked = false
         }
+    }
 
-        // Same-device loopback (iPhone mic → iPhone speaker) is the
-        // feedback-prone default nobody wants. Surfaced to the view so the
-        // Listen button can be disabled until headphones are connected.
-        let currentRoute = session.currentRoute
-        isDangerousLoopback = currentRoute.inputs.first?.portType == .builtInMic
-            && currentRoute.outputs.first?.portType == .builtInSpeaker
+    /// Maintains `externalOutputObservedLost`, the memory that separates
+    /// "the user's headphones vanished" from "the user chose the speaker".
+    /// Both land on the same `currentRoute` (built-in speaker only), but
+    /// the route-change REASON tells them apart: `.oldDeviceUnavailable`
+    /// means iOS took the device away, `.override` means the user picked
+    /// the speaker in the route picker. Only the former earns the
+    /// "— missing" state. Called from `handleRouteChange` before
+    /// `updateAudioRoutes`.
+    private func updateExternalOutputLossState(notification: Notification) {
+        let route = AVAudioSession.sharedInstance().currentRoute
+        guard route.outputs.first?.portType == .builtInSpeaker else {
+            externalOutputObservedLost = false
+            return
+        }
+        let reason = (notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
+            .flatMap { AVAudioSession.RouteChangeReason(rawValue: $0) }
+        switch reason {
+        case .oldDeviceUnavailable:
+            // Claim "missing" only if the PREVIOUS route actually had an
+            // external output — i.e. we transitioned external → speaker
+            // because that device went away. (An input-side loss while
+            // already on the speaker must not flag the output.)
+            let previous = notification.userInfo?[AVAudioSessionRouteChangePreviousRouteKey]
+                as? AVAudioSessionRouteDescription
+            let lostExternalOutput = previous?.outputs.contains {
+                $0.portType != .builtInSpeaker && $0.portType != .builtInReceiver
+            } ?? false
+            if lostExternalOutput {
+                externalOutputObservedLost = true
+            }
+        case .override:
+            // The user picked the speaker in the route picker: blocked
+            // state, not missing — their headphones are still connected.
+            externalOutputObservedLost = false
+        default:
+            break
+        }
     }
 
     private func saveLastExternalInput(id: String, name: String) {
@@ -843,6 +893,7 @@ final class AudioEngineManager: ObservableObject {
         let newSignature = currentRouteSignature()
         lastRouteSignature = newSignature
 
+        updateExternalOutputLossState(notification: notification)
         updateAudioRoutes()
 
         if isApplyingAudioSessionChange { return }
@@ -853,6 +904,14 @@ final class AudioEngineManager: ObservableObject {
             let pinned = (try? applyPreferredInputIfNeeded()) ?? false
             if isRunning && (selectedInputIsMissing || outputIsMissing) {
                 stopListening(withMessage: Self.disconnectedMessage(selectedInputMissing: selectedInputIsMissing))
+                return
+            }
+            // Landing on the speaker also stops us, silenced or not —
+            // speaker route is blocked, so we must never keep playing
+            // into it (feedback screech risk if the user races the route
+            // picker right after tapping LISTEN).
+            if isRunning && outputIsBlocked {
+                stopListening(withMessage: String(localized: "Audio route changed. Tap LISTEN to resume."))
                 return
             }
             if isRunning && pinned {
@@ -931,12 +990,13 @@ final class AudioEngineManager: ObservableObject {
             updateAudioRoutes()
             // Auto-resume: if the user was listening before the
             // interruption AND has opted in, spin the engine back up.
-            // Guard against the feedback-prone route: if the headphones
+            // Guard against the blocked speaker route: if the headphones
             // came off during the call, the route is now the iPhone
             // speaker and resuming would screech. Same guard as
-            // `evaluateAutoListen`.
+            // `evaluateAutoListen`. (`updateAudioRoutes` ran just above,
+            // so these flags are fresh.)
             if autoResumeEnabled, wasRunningBeforeInterruption, !isRunning {
-                if !isDangerousLoopback, !selectedInputIsMissing {
+                if !outputIsBlocked, !outputIsMissing, !selectedInputIsMissing {
                     try? ensureSessionConfigured()
                     beginListening()
                 }

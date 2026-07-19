@@ -93,7 +93,7 @@ struct ContentView: View {
     }
 
     private var outputValueText: String {
-        if audioManager.isDangerousLoopback {
+        if audioManager.outputIsBlocked {
             return String(localized: "Connect headphones")
         }
         return audioManager.currentOutputName
@@ -105,7 +105,7 @@ struct ContentView: View {
                 title: "Speaker or Headphones",
                 value: outputValueText,
                 icon: "speaker.wave.2.fill",
-                isWarning: audioManager.outputIsMissing || audioManager.isDangerousLoopback
+                isWarning: audioManager.outputIsMissing || audioManager.outputIsBlocked
             ) {
                 AudioRoutePicker()
                     .frame(width: 52, height: 44)
@@ -148,7 +148,7 @@ struct ContentView: View {
         .padding(14)
         .cardStyle(borderColor: listeningCardBorderColor)
         .animation(.easeInOut(duration: 0.25), value: audioManager.isRunning)
-        .animation(.easeInOut(duration: 0.25), value: audioManager.isDangerousLoopback)
+        .animation(.easeInOut(duration: 0.25), value: audioManager.outputIsBlocked)
     }
 
     // MARK: - Computed display state
@@ -158,26 +158,32 @@ struct ContentView: View {
         !audioManager.isRunning && audioManager.selectedInputIsMissing
     }
 
-    /// True when the selected speaker/headphones are missing.
+    /// True when the previously routed external output was observed
+    /// going away ("X — missing").
     private var outputMissing: Bool {
         !audioManager.isRunning && audioManager.outputIsMissing
     }
 
-    /// True when the only available path is iPhone mic → iPhone speaker
-    /// AND the user has not opted into same-device loopback. This is the
-    /// feedback-prone default that nobody wants; the button is disabled
-    /// with constructive guidance instead of a scary confirm.
-    private var isDangerousBlocked: Bool {
-        !audioManager.isRunning && audioManager.isDangerousLoopback
+    /// True when the output is the iPhone speaker. Listening requires
+    /// headphones (or another external output), so the button is
+    /// disabled with constructive guidance instead of a scary confirm.
+    private var outputBlocked: Bool {
+        !audioManager.isRunning && audioManager.outputIsBlocked
     }
 
-    /// True when the LISTEN control is unavailable (missing mic, missing output, or
-    /// dangerous same-device loopback that hasn't been opted into).
+    /// True when listening can't start because of the output side:
+    /// the external output is missing, or the speaker route is blocked.
+    private var headphonesNeeded: Bool {
+        outputMissing || outputBlocked
+    }
+
+    /// True when the LISTEN control is unavailable (missing mic, missing
+    /// output, or the blocked speaker route).
     private var isButtonDisabled: Bool {
         !audioManager.isRunning && (
             audioManager.selectedInputIsMissing ||
             audioManager.outputIsMissing ||
-            isDangerousBlocked
+            outputBlocked
         )
     }
 
@@ -260,10 +266,9 @@ struct ContentView: View {
     }
 
     private var buttonLabelText: String {
-        if isDangerousBlocked { return String(localized: "Headphones required") }
-        if inputMissing && outputMissing { return String(localized: "Headphones and microphone required") }
+        if inputMissing && headphonesNeeded { return String(localized: "Headphones and microphone required") }
         if inputMissing { return String(localized: "Microphone required") }
-        if outputMissing { return String(localized: "Headphones required") }
+        if headphonesNeeded { return String(localized: "Headphones required") }
         return audioManager.isRunning
             ? String(localized: "Stop Listening")
             : String(localized: "Start Listening")

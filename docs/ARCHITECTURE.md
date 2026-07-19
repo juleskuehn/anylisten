@@ -68,18 +68,17 @@ accepting a fallback to built-in hardware.
 | `currentOutputName` | `String` | Pretty name for display (e.g. "AirPods Pro (Bluetooth)"). |
 | `selectedInputID` / `selectedInputName` | `String?` | Mirror of `UserDefaults`. |
 | `selectedInputIsMissing` | `Bool` | `true` when the previously selected input is no longer in `availableInputs`. |
-| `outputMayCauseFeedback` | `Bool` | `true` when the active output is `builtInSpeaker` AND it is not merely the fallback for a missing external output. |
-| `outputIsMissing` | `Bool` | `true` when a remembered external output has vanished and iOS fell back to the built-in speaker. |
+| `outputIsMissing` | `Bool` | `true` when the previously routed external output was OBSERVED going away (`.oldDeviceUnavailable` while routed to it) and iOS fell back to the speaker. Shown as "X — missing". |
+| `outputIsBlocked` | `Bool` | `true` when the current route output is the built-in speaker (and not in the missing state). Listening is blocked; the view shows "Connect headphones" and disables Listen. |
 | `lastExternalInputID` / `lastExternalInputName` | `String?` | Most recent non-built-in input (chosen or auto-upgraded); persisted so a disconnect shows "missing" instead of a silent fallback. |
-| `lastExternalOutputID` / `lastExternalOutputName` | `String?` | Most recent non-built-in output; persisted for the same reason on the output side. |
-| `errorMessage` | `String?` | User-visible error string for the listening card. |
+| `lastExternalOutputID` / `lastExternalOutputName` | `String?` | Most recent non-built-in output; the name feeds the "— missing" text when an observed loss occurs. |
+| `errorMessage` | `String?` | Internal stop/failure reason (route changed, disconnected, engine failure). Currently **not rendered** in the UI — state is communicated via the orange row text and the disabled-button label. |
 | `microphonePermissionStatus` | `AVAuthorizationStatus` | Drives permission UX. |
 
 ### View-local state
 
 `ContentView` holds exactly one piece of state outside the manager:
-`@State private var showSpeakerWarning`. That alert is intentionally a UI
-concern and never needs to outlive the screen.
+`@State private var showSettings`, which presents the Settings sheet.
 
 ## Lifecycle
 
@@ -94,10 +93,11 @@ concern and never needs to outlive the screen.
    permission is already granted — activates the session immediately so USB
    inputs begin enumerating (then polls, because USB enumeration is
    asynchronous and fires no usable notification).
-4. **User taps LISTEN** → `ContentView` consults
-   `outputMayCauseFeedback`:
-   - If feedback risk → show the warning alert.
-   - Else → `audioManager.beginListening()`.
+4. **User taps LISTEN** → enabled only when the route is listenable: no
+   missing input, no missing output, and the output is not the built-in
+   speaker (`outputIsBlocked`). Otherwise the button is disabled and its
+   label says what's needed ("Headphones required" / "Microphone
+   required"). A tap calls `audioManager.beginListening()`.
 5. **`beginListening`** — short-circuits to the permission flow if needed; on
    grant, calls `start()`.
 6. **`start`** — ensures the session is configured (category + preferred

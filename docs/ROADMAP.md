@@ -62,9 +62,11 @@ the side-by-side Live Listen latency check.**
 ### P1 — Same-device loopback guard + first-run guidance
 *(cheap, high impact, no latency impact)*
 
-**Status: ✅ Shipped** — `isDangerousLoopback` disables the Listen button,
-the speaker card shows "Connect headphones", the button reads "Headphones
-required". The override toggle was not added.
+**Status: ✅ Shipped** — and broadened: ANY built-in-speaker route is
+blocked (`outputIsBlocked`), not just the iPhone-mic→speaker loopback. The
+speaker card shows "Connect headphones", the button reads "Headphones
+required". The override toggle was not added. An observed headphone
+disconnect shows "X — missing" instead.
 
 **Problem.** iPhone-mic → iPhone-speaker is virtually always unwanted,
 causes feedback, and is *the default state when the app opens with no
