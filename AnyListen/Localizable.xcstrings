@@ -151,12 +151,12 @@
         }
       }
     },
-    "Automatic start": {
+    "Automatic Start": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatic start"
+            "value": "Automatic Start"
           }
         }
       }
@@ -181,12 +181,12 @@
         }
       }
     },
-    "Built-in Microphone": {
+    "Built-in mic": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Built-in Microphone"
+            "value": "Built-in mic"
           }
         }
       }
@@ -352,12 +352,12 @@
         }
       }
     },
-    "Listening Control": {
+    "Listening control": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Listening Control"
+            "value": "Listening control"
           }
         }
       }
@@ -412,12 +412,12 @@
         }
       }
     },
-    "Microphone Access": {
+    "Microphone access": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Microphone Access"
+            "value": "Microphone access"
           }
         }
       }
@@ -522,22 +522,22 @@
         }
       }
     },
-    "Phone calls": {
+    "Phone Calls": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Phone calls"
+            "value": "Phone Calls"
           }
         }
       }
     },
-    "Privacy policy": {
+    "Privacy Policy": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Privacy policy"
+            "value": "Privacy Policy"
           }
         }
       }
@@ -602,12 +602,12 @@
         }
       }
     },
-    "Speaker or Headphones": {
+    "Speaker or headphones": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Speaker or Headphones"
+            "value": "Speaker or headphones"
           }
         }
       }

@@ -11,18 +11,18 @@ navigation stacks — the app's job fits in one view.
 │  AnyListen                ⚙︎     │   ← Title (20 pt rounded bold) + gear
 ├──────────────────────────────────┤
 │ ┌──────────────────────────────┐ │
-│ │ 🎤  MICROPHONE               │ │   ← mic icon + "Change ▾" Menu
-│ │     <current input name>     │ │   ← orange "X — missing" when the
+│ │ Microphone                   │ │   ← muted title, spans card width
+│ │ 🎤  <current input name>     │ │   ← orange "X — missing" when the
 │ │                  [ Change ▾ ]│ │     selected mic is gone
 │ └──────────────────────────────┘ │
 │ ┌──────────────────────────────┐ │
-│ │ 🔊  SPEAKER OR HEADPHONES    │ │   ← AVRoutePickerView (AirPlay)
-│ │     <current output name>    │ │   ← orange "X — missing" or
+│ │ Speaker or headphones        │ │
+│ │ 🔊  <current output name>    │ │   ← orange "X — missing" or
 │ │                [ 🎚 AirPlay ]│ │     "Connect headphones" when blocked
 │ └──────────────────────────────┘ │
 │ ┌──────────────────────────────┐ │
-│ │ ◗  LISTENING CONTROL         │ │
-│ │     Listening is on / off    │ │
+│ │ Listening control            │ │
+│ │ ◗   Listening is on / off    │ │
 │ │     ╭──────────╮             │ │
 │ │     │  ◗ ear   │             │ │   ← Listen / Stop (132 × 132)
 │ │     ╰──────────╯             │ │
@@ -30,6 +30,12 @@ navigation stacks — the app's job fits in one view.
 │ └──────────────────────────────┘ │
 └──────────────────────────────────┘
 ```
+
+Every card follows the same pattern: the muted title spans the card's
+full width on its own line; the icon + value + control row sits below.
+At extreme Dynamic Type sizes the row's control (Change button, route
+picker) drops to a full-width bar below the row via `ViewThatFits`, so
+no control text ever wraps mid-word.
 
 A fourth, conditional card — **Microphone Access** — appears *above* the
 microphone card when (and only when) mic permission is `.denied` or
@@ -64,10 +70,10 @@ use `fixedSize(vertical:)` to wrap instead of truncating, and the
 | Subview | Role |
 |---------|------|
 | `microphoneCard` | The MICROPHONE panel. Hosts the input menu; value text goes orange with a "— missing" suffix when the selected mic is gone. |
-| `speakerCard` | The SPEAKER OR HEADPHONES panel. Hosts `AudioRoutePicker`; shows "Connect headphones" in orange whenever the speaker is routed (blocked), or "X — missing" when the external output was observed going away. |
+| `speakerCard` | The SPEAKER OR HEADPHONES panel. Hosts `AudioRoutePicker` (via `outputPickerControl`, 52×44 compact / full-width expanded); shows "Connect headphones" in orange whenever the speaker is routed (blocked), or "X — missing" when the external output was observed going away. |
 | `listeningCard` | The LISTENING CONTROL panel. Hosts the listen button and state label; border turns green while running. |
-| `routeRow(...)` | Helper builder. Renders a leading icon, two-line title/value, and a trailing control (any `View`). Marks warning state with orange. |
-| `inputMenu` | SwiftUI `Menu` containing "Automatic" + every device in `availableInputs`, marked with a check when current. |
+| `routeRow(...)` | Helper builder. Renders the muted full-width title, then a `ViewThatFits` row: leading icon + value + trailing control, falling back to the control on a full-width line below at extreme text sizes. The control closure receives `expanded: Bool`. Marks warning state with orange. |
+| `inputMenu(expanded:)` | SwiftUI `Menu` containing "Automatic" + every device in `availableInputs`, marked with check when current. Compact: 118pt pill with "Change ⌄"; expanded: full-width bar. |
 | `listenButton` | The big circular 132 × 132 button. If running → `stop()`; else `beginListening()`. Disabled (`isButtonDisabled`) when the selected input is missing, the output is missing, the route is the same-device loopback, or mic permission is denied — with the reason shown as the label. |
 | `microphonePermissionCard` | Conditional top card for denied/restricted mic permission: explanation + "Open Settings" button. The only non-`errorMessage` warning surface. |
 | `SettingsView` | The gear-icon sheet: monitor-volume slider, "Start listening automatically", "Resume after phone calls", and an About section linking the privacy policy (GitHub Pages URL; must match App Store Connect). |

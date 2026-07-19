@@ -97,8 +97,8 @@ struct ContentView: View {
                 value: audioManager.currentInputName,
                 icon: "mic.fill",
                 isWarning: audioManager.selectedInputIsMissing
-            ) {
-                inputMenu
+            ) { expanded in
+                inputMenu(expanded: expanded)
             }
         }
         .padding(14)
@@ -115,16 +115,12 @@ struct ContentView: View {
     private var speakerCard: some View {
         VStack(spacing: 10) {
             routeRow(
-                title: "Speaker or Headphones",
+                title: "Speaker or headphones",
                 value: outputValueText,
                 icon: "speaker.wave.2.fill",
                 isWarning: audioManager.outputIsMissing || audioManager.outputIsBlocked
-            ) {
-                AudioRoutePicker()
-                    .frame(width: 52, height: 44)
-                    .background(Color.white.opacity(0.12))
-                    .cornerRadius(12)
-                    .accessibilityLabel(Text("Select output"))
+            ) { expanded in
+                outputPickerControl(expanded: expanded)
             }
         }
         .padding(14)
@@ -140,24 +136,24 @@ struct ContentView: View {
     /// it reacts directly to the permission status.
     private var microphonePermissionCard: some View {
         VStack(spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "mic.slash.fill")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.orange)
-                    .frame(width: 30)
-                    .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Microphone access")
+                    .font(.system(size: sectionLabelFontSize, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.55))
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "mic.slash.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.orange)
+                        .frame(width: 30)
+                        .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Microphone Access")
-                        .font(.system(size: sectionLabelFontSize, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.55))
                     Text("Microphone access is turned off. AnyListen needs the microphone to route audio — turn it on in Settings.")
                         .font(.system(size: bodyFontSize))
                         .foregroundColor(.white.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
-                }
 
-                Spacer(minLength: 8)
+                    Spacer(minLength: 8)
+                }
             }
 
             Button {
@@ -185,26 +181,25 @@ struct ContentView: View {
 
     private var listeningCard: some View {
         VStack(spacing: 12) {
-            // Title row mirrors the routeRow pattern so the three cards
-            // share a consistent visual rhythm (icon + small label + state).
-            HStack(spacing: 12) {
-                Image(systemName: "ear")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(listeningRowIconColor)
-                    .frame(width: 30)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Listening Control")
-                        .font(.system(size: sectionLabelFontSize, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.55))
+            // Title spans the card's full width (same pattern as routeRow);
+            // the state line sits below with its icon.
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Listening control")
+                    .font(.system(size: sectionLabelFontSize, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.55))
+                HStack(spacing: 12) {
+                    Image(systemName: "ear")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(listeningRowIconColor)
+                        .frame(width: 30)
                     Text(listeningStateText)
                         .font(.system(size: valueFontSize, weight: .semibold))
                         .foregroundColor(listeningValueColor)
                         .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
                 }
-
-                Spacer(minLength: 8)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(minHeight: 54)
 
             listenButton
@@ -376,39 +371,78 @@ struct ContentView: View {
 
     // MARK: - Route row (shared by mic + speaker cards)
 
+    /// Card layout: the muted title spans the card's full width on its own
+    /// line; below it, the icon + value + control row. When that row can't
+    /// fit (extreme Dynamic Type sizes), ViewThatFits drops the control to
+    /// a full-width line below — control text never wraps mid-word.
     private func routeRow<Control: View>(
         title: LocalizedStringKey,
         value: String,
         icon: String,
         isWarning: Bool,
-        @ViewBuilder control: () -> Control
+        @ViewBuilder control: (_ expanded: Bool) -> Control
     ) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(isWarning ? .orange : .cyan)
-                .frame(width: 30)
-                .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: sectionLabelFontSize, weight: .semibold))
+                .foregroundColor(.white.opacity(0.55))
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: sectionLabelFontSize, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.55))
-                Text(value)
-                    .font(.system(size: valueFontSize, weight: .semibold))
-                    .foregroundColor(isWarning ? .orange : .white)
-                    .fixedSize(horizontal: false, vertical: true)
+            ViewThatFits {
+                HStack(spacing: 12) {
+                    rowIcon(icon, isWarning: isWarning)
+                    rowValue(value, isWarning: isWarning)
+                    Spacer(minLength: 8)
+                    control(false)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 12) {
+                        rowIcon(icon, isWarning: isWarning)
+                        rowValue(value, isWarning: isWarning)
+                        Spacer(minLength: 8)
+                    }
+                    control(true)
+                }
             }
-
-            Spacer(minLength: 8)
-            control()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: 54)
+    }
+
+    private func rowIcon(_ name: String, isWarning: Bool) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundColor(isWarning ? .orange : .cyan)
+            .frame(width: 30)
+            .accessibilityHidden(true)
+    }
+
+    private func rowValue(_ value: String, isWarning: Bool) -> some View {
+        Text(value)
+            .font(.system(size: valueFontSize, weight: .semibold))
+            .foregroundColor(isWarning ? .orange : .white)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The route picker button: 52×44 in the compact row, full-width when
+    /// the row has wrapped at extreme text sizes.
+    private func outputPickerControl(expanded: Bool) -> some View {
+        Group {
+            if expanded {
+                AudioRoutePicker()
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            } else {
+                AudioRoutePicker()
+                    .frame(width: 52, height: 44)
+            }
+        }
+        .background(Color.white.opacity(0.12))
+        .cornerRadius(12)
+        .accessibilityLabel(Text("Select output"))
     }
 
     // MARK: - Subviews
 
-    private var inputMenu: some View {
+    private func inputMenu(expanded: Bool) -> some View {
         Menu {
             Button {
                 audioManager.clearSelectedInput()
@@ -432,18 +466,29 @@ struct ContentView: View {
                 }
             }
         } label: {
-            HStack(spacing: 6) {
-                Text("Change")
-                    .font(.system(size: bodyFontSize, weight: .semibold))
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .bold))
+            Group {
+                if expanded {
+                    menuLabel.frame(maxWidth: .infinity, minHeight: 44)
+                } else {
+                    menuLabel.frame(minWidth: 118, minHeight: 44)
+                }
             }
-            .foregroundColor(.white)
-            .padding(.horizontal, 12)
-            .frame(minWidth: 118, minHeight: 44)
             .background(Color.white.opacity(0.12))
             .cornerRadius(12)
         }
+    }
+
+    /// "Change ⌄" label content, factored out so the menu can present it
+    /// compact (fixed 118pt pill) or expanded (full-width bar).
+    private var menuLabel: some View {
+        HStack(spacing: 6) {
+            Text("Change")
+                .font(.system(size: bodyFontSize, weight: .semibold))
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 12)
     }
 
 }
@@ -498,7 +543,7 @@ struct SettingsView: View {
                     Toggle("Start listening automatically", isOn: $audioManager.autoListenEnabled)
                         .tint(.green)
                 } header: {
-                    Text("Automatic start")
+                    Text("Automatic Start")
                 } footer: {
                     Text("When your microphone and headphones are both connected, the app will start listening automatically. In some cases, you might need to open the app again.")
                 }
@@ -507,14 +552,14 @@ struct SettingsView: View {
                     Toggle("Resume after phone calls", isOn: $audioManager.autoResumeEnabled)
                         .tint(.green)
                 } header: {
-                    Text("Phone calls")
+                    Text("Phone Calls")
                 } footer: {
                     Text("When a phone call or other interruption ends, the app will automatically start listening again.")
                 }
 
                 Section {
                     Link(destination: Self.privacyPolicyURL) {
-                        Text("Privacy policy")
+                        Text("Privacy Policy")
                     }
                 } header: {
                     Text("About")

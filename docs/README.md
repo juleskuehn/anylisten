@@ -11,6 +11,7 @@ This directory holds the long-form documentation for AnyListen.
 | [`ROADMAP.md`](ROADMAP.md) | Next-iteration review & plan; the Live Listen latency constraint and what it rules out. |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | Build configuration, signing, deployment target, XcodeGen workflow. |
 | [`APP_STORE.md`](APP_STORE.md) | App Store Connect listing: store name, subtitle, keywords, category, and the rationale behind them. |
+| [`SCREENSHOT_TESTING.md`](SCREENSHOT_TESTING.md) | CLI simulator screenshot workflow for UI iteration — capture recipes, device states, Dynamic Type zoom via CLI. |
 
 ## At a glance
 

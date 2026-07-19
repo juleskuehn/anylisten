@@ -864,7 +864,7 @@ final class AudioEngineManager: ObservableObject {
     /// simulator's stub portName is the raw token "MicrophoneBuiltIn" —
     /// map the built-in mic to a friendly name everywhere.
     private static func inputDisplayName(for port: AVAudioSessionPortDescription) -> String {
-        if port.portType == .builtInMic { return String(localized: "Built-in Microphone") }
+        if port.portType == .builtInMic { return String(localized: "Built-in mic") }
         return port.portName
     }
 
