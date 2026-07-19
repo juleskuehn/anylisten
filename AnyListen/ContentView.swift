@@ -1,8 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @StateObject private var audioManager = AudioEngineManager()
-    @State private var showSpeakerWarning = false
+    @State private var showSettings = false
 
     var body: some View {
         ZStack {
@@ -35,22 +36,32 @@ struct ContentView: View {
         .onAppear {
             audioManager.updateAudioRoutes()
         }
-        .alert("Speaker feedback warning", isPresented: $showSpeakerWarning) {
-            Button("Cancel", role: .cancel) { }
-            Button("Listen Anyway", role: .destructive) {
-                audioManager.beginListening()
-            }
-        } message: {
-            Text("Routing microphone input to a phone or tablet speaker can create loud feedback. Keep the output away from the input, or choose headphones/Bluetooth/USB output instead.")
+        .sheet(isPresented: $showSettings) {
+            SettingsView(audioManager: audioManager)
+        }
+        .onChange(of: audioManager.isRunning) { newValue in
+            UIAccessibility.post(notification: .announcement,
+                                 argument: newValue ? "Listening started" : "Listening stopped")
         }
     }
 
     // MARK: - Header
 
     private var headerTitle: some View {
-        Text("AnyListen")
-            .font(.system(size: 18, weight: .bold, design: .rounded))
-            .foregroundColor(.white.opacity(0.95))
+        HStack {
+            Text("AnyListen")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.95))
+            Spacer()
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .accessibilityLabel("Settings")
+        }
     }
 
     // MARK: - Cards
@@ -77,19 +88,25 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.25), value: audioManager.selectedInputIsMissing)
     }
 
+    private var outputValueText: String {
+        if audioManager.isDangerousLoopback {
+            return "Connect headphones"
+        }
+        return audioManager.currentOutputName
+    }
+
     private var speakerCard: some View {
         VStack(spacing: 10) {
             routeRow(
                 title: "Speaker or Headphones",
-                value: audioManager.currentOutputName,
+                value: outputValueText,
                 icon: "speaker.wave.2.fill",
-                // Tint orange only when the output is genuinely MISSING
-                // (i.e. the user's last AirPods/BT/USB headphones have
-                // disappeared and iOS has fallen back to the speaker).
-                // The "working output but feedback-prone" case keeps the
-                // row in normal cyan/white tones, with the warning text
-                // below handling the heads-up.
-                isWarning: audioManager.outputIsMissing
+                // Tint orange when the output is genuinely missing OR in
+                // the blocked dangerous feedback state (iPhone mic →
+                // iPhone speaker). Same-device routing is permanently
+                // disabled, so this row itself is the call-to-action:
+                // "Connect headphones".
+                isWarning: audioManager.outputIsMissing || audioManager.isDangerousLoopback
             ) {
                 AudioRoutePicker()
                     .frame(width: 52, height: 44)
@@ -98,20 +115,16 @@ struct ContentView: View {
                     .accessibilityLabel("Select output")
             }
 
-            // Missing takes precedence over feedback: if the user's
-            // preferred output is gone, that's the more urgent message.
             if audioManager.outputIsMissing {
                 warningText("Selected speaker is missing. Reconnect it or choose a different output.")
-            } else if audioManager.outputMayCauseFeedback {
-                warningText("Speaker output can cause feedback. Use headphones, Bluetooth, or USB output when possible.")
             }
         }
         .padding(14)
         .cardStyle(borderColor: cardBorderColor(
-            forWarning: audioManager.outputIsMissing || audioManager.outputMayCauseFeedback
+            forWarning: audioManager.outputIsMissing || audioManager.isDangerousLoopback
         ))
         .animation(.easeInOut(duration: 0.25), value: audioManager.outputIsMissing)
-        .animation(.easeInOut(duration: 0.25), value: audioManager.outputMayCauseFeedback)
+        .animation(.easeInOut(duration: 0.25), value: audioManager.isDangerousLoopback)
     }
 
     private var listeningCard: some View {
@@ -152,28 +165,39 @@ struct ContentView: View {
         .cardStyle(borderColor: listeningCardBorderColor)
         .animation(.easeInOut(duration: 0.25), value: audioManager.isRunning)
         .animation(.easeInOut(duration: 0.25), value: audioManager.errorMessage)
+        .animation(.easeInOut(duration: 0.25), value: audioManager.isDangerousLoopback)
     }
 
     // MARK: - Computed display state
 
-    /// True when the LISTEN control is unavailable because configuration
-    /// is incomplete (i.e. the user must pick a microphone first).
-    private var isButtonDisabledByConfig: Bool {
+    /// True when the selected mic is missing (must pick/reattach a mic).
+    private var inputMissing: Bool {
         !audioManager.isRunning && audioManager.selectedInputIsMissing
     }
 
+    /// True when the only available path is iPhone mic → iPhone speaker
+    /// AND the user has not opted into same-device loopback. This is the
+    /// feedback-prone default that nobody wants; the button is disabled
+    /// with constructive guidance instead of a scary confirm.
+    private var isDangerousBlocked: Bool {
+        !audioManager.isRunning && audioManager.isDangerousLoopback
+    }
+
+    /// True when the LISTEN control is unavailable (missing mic, or
+    /// dangerous same-device loopback that hasn't been opted into).
+    private var isButtonDisabled: Bool {
+        !audioManager.isRunning && (audioManager.selectedInputIsMissing || isDangerousBlocked)
+    }
+
     private var listeningStateText: String {
-        if isButtonDisabledByConfig { return "Disabled" }
         return audioManager.isRunning ? "Listening is on" : "Listening is off"
     }
 
     private var listeningValueColor: Color {
-        if isButtonDisabledByConfig { return .orange }
         return audioManager.isRunning ? .green : .white
     }
 
     private var listeningRowIconColor: Color {
-        if isButtonDisabledByConfig { return .orange }
         return audioManager.isRunning ? .green : .cyan
     }
 
@@ -192,8 +216,6 @@ struct ContentView: View {
         Button {
             if audioManager.isRunning {
                 audioManager.stop()
-            } else if audioManager.outputMayCauseFeedback {
-                showSpeakerWarning = true
             } else {
                 audioManager.beginListening()
             }
@@ -217,14 +239,7 @@ struct ContentView: View {
                     Image(systemName: "ear")
                         .font(.system(size: 58, weight: .regular))
                         .foregroundColor(buttonIconColor)
-
-                    // Diagonal "no" slash for the disabled state only.
-                    if isButtonDisabledByConfig {
-                        Capsule()
-                            .fill(Color.white.opacity(0.65))
-                            .frame(width: 9, height: 124)
-                            .rotationEffect(.degrees(50))
-                    }
+                        .accessibilityHidden(true)
                 }
                 .animation(.easeInOut(duration: 0.25), value: audioManager.isRunning)
                 .animation(.easeInOut(duration: 0.25), value: audioManager.selectedInputIsMissing)
@@ -240,11 +255,17 @@ struct ContentView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(isButtonDisabledByConfig)
+        .disabled(isButtonDisabled)
+        .accessibilityLabel(audioManager.isRunning ? "Stop listening" : "Start listening")
+        .accessibilityHint(audioManager.isRunning
+            ? "Stops routing microphone audio to your output"
+            : "Starts routing microphone audio to your output")
+        .accessibilityValue(audioManager.isRunning ? "on" : "off")
     }
 
     private var buttonLabelText: String {
-        if isButtonDisabledByConfig { return "Microphone required" }
+        if isDangerousBlocked { return "Headphones required" }
+        if inputMissing { return "Microphone required" }
         return audioManager.isRunning ? "Stop Listening" : "Start Listening"
     }
 
@@ -255,21 +276,23 @@ struct ContentView: View {
     /// "alive/listening" mood without any red anywhere in the active
     /// state.
     private var buttonLabelColor: Color {
-        if isButtonDisabledByConfig { return Color.white.opacity(0.40) }
+        if isButtonDisabled { return Color.white.opacity(0.60) }
         return audioManager.isRunning
             ? Color.white
             : Color.green
     }
 
     private var buttonStrokeColor: Color {
-        if isButtonDisabledByConfig { return Color.white.opacity(0.25) }
+        if isButtonDisabled { return Color.white.opacity(0.35) }
         return audioManager.isRunning ? Color.clear : Color.green.opacity(0.9)
     }
 
     private var buttonIconColor: Color {
-        if isButtonDisabledByConfig { return Color.white.opacity(0.30) }
+        if isButtonDisabled { return Color.white.opacity(0.45) }
         return audioManager.isRunning ? .white : Color.green.opacity(0.9)
     }
+
+
 
     // MARK: - Route row (shared by mic + speaker cards)
 
@@ -285,6 +308,7 @@ struct ContentView: View {
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(isWarning ? .orange : .cyan)
                 .frame(width: 30)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -377,6 +401,59 @@ private extension View {
                     .stroke(borderColor, lineWidth: 1)
             )
             .cornerRadius(20)
+    }
+}
+
+// MARK: - Settings
+
+struct SettingsView: View {
+    @ObservedObject var audioManager: AudioEngineManager
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "speaker.fill")
+                            .foregroundColor(.gray)
+                        Slider(value: $audioManager.monitorVolume, in: 0.0...1.0)
+                            .tint(.green)
+                        Image(systemName: "speaker.wave.3.fill")
+                            .foregroundColor(.gray)
+                    }
+                } header: {
+                    Text("Volume")
+                } footer: {
+                    Text("Adjusts the volume of the sound sent to your headphones. This can only decrease the volume; use your iPhone's physical volume buttons to increase the maximum sound level.")
+                }
+
+                Section {
+                    Toggle("Start listening automatically", isOn: $audioManager.autoListenEnabled)
+                        .tint(.green)
+                } header: {
+                    Text("Automatic Start")
+                } footer: {
+                    Text("When your microphone and headphones are both connected, the app will start listening automatically. In some cases, you might need to open the app again.")
+                }
+
+                Section {
+                    Toggle("Resume after phone calls", isOn: $audioManager.autoResumeEnabled)
+                        .tint(.green)
+                } header: {
+                    Text("Phone Calls")
+                } footer: {
+                    Text("When a phone call or other interruption ends, the app will automatically start listening again if it was running before.")
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

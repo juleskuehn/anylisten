@@ -8,11 +8,12 @@ This directory holds the long-form documentation for AnyListen.
 | [`AUDIO_PIPELINE.md`](AUDIO_PIPELINE.md) | Deep dive into the `AVAudioEngine` + `AVAudioSession` setup and the Bluetooth/HFP reasoning. |
 | [`UI.md`](UI.md) | The single-screen UI: layout, state binding, warnings, accessibility notes. |
 | [`REVIEW.md`](REVIEW.md) | Issues, sharp edges, and suggested improvements. |
+| [`ROADMAP.md`](ROADMAP.md) | Next-iteration review & plan; the Live Listen latency constraint and what it rules out. |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | Build configuration, signing, deployment target, XcodeGen workflow. |
 
 ## At a glance
 
-- **Platform**: iOS, iPhone-only, portrait.
+- **Platform**: iOS (iPhone & iPad), portrait.
 - **Bundle ID**: `com.anylisten.AnyListen`
 - **Language**: Swift
 - **UI**: SwiftUI

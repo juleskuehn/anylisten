@@ -52,6 +52,9 @@ intended target, supporting the iPhone-on-iPad compat mode avoids
 firm product reason to stay iPhone-only, note that decision in this
 document (or in a top-level ADR-style markdown file alongside it).
 
+**Status:** ✅ Resolved (round 2) — `TARGETED_DEVICE_FAMILY` is now `"1,2"`
+(iPad supported via iPhone-on-iPad compat). Portrait-only orientation remains.
+
 ---
 
 ## 🟠 Medium
@@ -63,11 +66,15 @@ constructs a fresh `AVAudioEngine`. For repeated short toggles this
 adds 50–150 ms of latency and produces a soft audio glitch. Keep the
 engine alive, just `pause`/`resume` the player and the input tap.
 
-**Suggested fix:** keep `audioEngine` and `playerNode` alive across
-stops; only `playerNode.stop()` and `inputNode.removeTap` for shutdown;
-on re-start, re-install tap and `playerNode.play()`. Be careful with
-the "format on input changed" case — re-install the tap if the input
-format changed while stopped.
+**Suggested fix:** keep `audioEngine` alive across stops; use
+`engine.pause()` to stop and `engine.start()` to resume, rebuilding the
+engine only when the input format actually changed (e.g. after an input
+switch while stopped). There is no `playerNode` or tap to manage in the
+current direct-connection design.
+
+**Status:** Still open. Latency-neutral if done right — `pause`/`start`
+preserves the graph and buffer sizes, so the ~5 ms I/O floor is
+unchanged. Worth doing alongside auto-listen (see [`ROADMAP.md`](ROADMAP.md), P5).
 
 ### M2. `start()` re-activates the session twice
 
@@ -84,6 +91,10 @@ to suppress. Consider drop the second activation when
 forced activation into a separate path that's only used when the
 preferred input mismatches after the first activation.
 
+**Status:** ✅ Resolved — `start()` now calls `ensureSessionConfigured()`
+once (which activates only if `!sessionIsActive`) then `rebuildEngineOnly()`.
+The `forceActive` parameter and the double activation no longer exist.
+
 ### M3. The 2-second `ignoreRouteChangesUntil` window is a magic number
 
 `start()` does `ignoreRouteChangesUntil = Date().addingTimeInterval(2.0)`.
@@ -91,6 +102,10 @@ preferred input mismatches after the first activation.
 system contention (incoming call), a route change may arrive after
 the window expires and the manager will mis-fire. Make it
 configurable, or lengthen to 3 s when `selectedInputIsMissing`.
+
+**Status:** ✅ Resolved — it is now the named constant
+`routeChangeSilenceWindowSeconds = 2.5`, applied via
+`silenceRouteChangesTemporarily()`.
 
 ### M4. `engine.inputNode.inputFormat(forBus: 0)` may have 0 channels
 
@@ -106,6 +121,10 @@ hundred ms and `scheduleBuffer` calls piled up against a player node
 whose format is still correct. These either error silently or
 delay the engine's stop. Add an explicit drop counter to logs (and
 consider cancelling laggard buffers on stop).
+
+**Status:** ✅ N/A (round 3) — the tap and `AVAudioPlayerNode` were removed;
+the loopback is now a direct `inputNode → mainMixerNode` connection. There
+is no tap buffer to leak and no `scheduleBuffer` calls in flight.
 
 ### M6. No volume / output lock detection
 
@@ -171,6 +190,11 @@ There is no `.swiftlint.yml` or `.swiftformat`. Reasonable picks:
 - `1024` (tap buffer size) — `kTapBufferSize`.
 - `2.0` (route-change debounce) — `kRouteChangeIgnoreWindowSeconds`.
 
+**Status:** ✅ Mostly resolved — `0.005` and the debounce window are now
+named constants (`preferredIOBufferDurationSeconds`,
+`routeChangeSilenceWindowSeconds = 2.5`); the `1024` tap buffer no longer
+exists (tap removed in round 3).
+
 ### L6. Long methods
 
 `AudioEngineManager.start()` and `selectInput()` are both ~30 lines.
@@ -217,8 +241,10 @@ for "missing"-state messaging.
 
 ## Things that **are** good — don't "fix"
 
-- Memory safety in the tap closure (`[weak player]`, guard on both
-  nil and `isPlaying`).
+- The **direct `inputNode → mainMixerNode` connection** — no tap, no
+  player node, no real-time callback — is what delivers Live-Listen-parity
+  latency (~5 ms app-added) while removing a whole class of
+  tap/`removeTap`-while-running freezes.
 - Permission UX (lazy + completion-based).
 - Resilience to media-services reset (`handleMediaServicesReset`).
 - Honest `errorMessage` resets at every entry point that could

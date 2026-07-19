@@ -23,10 +23,12 @@ output picker, and a big "Listen" button.
 ## High-level architecture
 
 SwiftUI views drive a single `ObservableObject` — `AudioEngineManager` — which
-in turn manages an `AVAudioEngine`, an `AVAudioPlayerNode`, and an
-`AVAudioSession`. Microphone frames are captured via a tap on the engine's input
-node and rescheduled onto the player node, producing a real-time loopback
-to the user's chosen output.
+in turn manages an `AVAudioEngine` and an `AVAudioSession`. The engine's input
+node is connected *directly* to its main mixer node, producing a real-time
+loopback to the user's chosen output at roughly one I/O buffer (~5 ms) of
+app-added latency — no tap, no player node, no scheduling jitter. This matches
+Live Listen's latency, which is a core requirement (see
+[`docs/ROADMAP.md`](docs/ROADMAP.md)).
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full picture, or
 the [`docs/README.md`](docs/README.md) table of contents.

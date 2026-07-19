@@ -271,20 +271,20 @@ state to display strings:
   "Headset", "Line In") via `readableInputType`.
 - Maps output ports to friendly strings like "iPhone Speaker",
   "<name> (Bluetooth)", via `readableOutputName`.
-- Sets `outputMayCauseFeedback = (firstOutput.portType == .builtInSpeaker)`.
+- Sets `outputMayCauseFeedback = (firstOutput.portType == .builtInSpeaker && !outputIsMissing)` — the warning only applies when the speaker is genuinely the chosen output, not when it is merely the iOS fallback while a remembered external output is missing.
 
 UI runs `updateAudioRoutes()` from `onAppear` and from the manager's
 own init.
 
 ## Threading model summary
 
-- **Main thread**: AVAudioSession calls, `@Published` writes, `UserDefaults`.
-- **Real-time audio thread (`AVAudioEngine.inputNode` tap)**: reads
-  captured buffers and calls `AVAudioPlayerNode.scheduleBuffer`. No
-  state writes, no allocations beyond the `AVAudioPCMBuffer` itself
-  (which is supplied by the engine).
-- **Cross-thread contract**: never hold a strong reference to the
-  `playerNode` outside the engine. `teardownEngine` is the only
-  place that breaks the contract, and it does so behind
-  `removeTap → engine.stop`, so the audio thread either runs the guard
-  and returns or the buffer is dropped silently.
+- **Main thread**: AVAudioSession calls, `@Published` writes, `UserDefaults`,
+  and all notification handlers (publishers are `.receive(on: .main)`).
+- **No app real-time audio thread**: the loopback is a direct
+  `inputNode → mainMixerNode` graph connection. All rendering is internal
+  to `AVAudioEngine`; the app never runs a render callback, never calls
+  `scheduleBuffer`, and never holds a cross-thread reference to any node.
+- **Teardown is trivial**: `teardownEngine()` is just `audioEngine?.stop()`
+  then `audioEngine = nil` — no `removeTap`, no player node to nil out.
+  This is the key reason the design is both low-latency and deadlock-free
+  (see the freeze fix in [`REVIEW.md`](REVIEW.md), round 3).

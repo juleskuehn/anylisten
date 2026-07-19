@@ -77,6 +77,9 @@ final class AudioEngineManager: ObservableObject {
     private let lastExternalInputNameKey = "AnyListen.lastExternalInputName"
     private let lastExternalOutputIDKey = "AnyListen.lastExternalOutputID"
     private let lastExternalOutputNameKey = "AnyListen.lastExternalOutputName"
+    private let autoListenEnabledKey = "AnyListen.autoListenEnabled"
+    private let autoResumeEnabledKey = "AnyListen.autoResumeEnabled"
+    private let monitorVolumeKey = "AnyListen.monitorVolume"
 
     // MARK: - Owned audio objects
 
@@ -100,6 +103,11 @@ final class AudioEngineManager: ObservableObject {
 
     private var isRebuildingEngine = false
     private var enumerationPollTimer: Timer?
+
+    /// Remembers whether the engine was running when an interruption
+    /// (phone call, Siri, …) began, so we can auto-resume when it ends
+    /// if the user has opted in. See `handleInterruption`.
+    private var wasRunningBeforeInterruption: Bool = false
 
     // MARK: - Published state
 
@@ -133,6 +141,21 @@ final class AudioEngineManager: ObservableObject {
     /// miss-the-external state.
     @Published var outputIsMissing: Bool = false
 
+    /// True when the current route is iPhone mic → iPhone speaker
+    /// (feedback-prone and virtually always unwanted). Updated in
+    /// `updateAudioRoutes` so the view can disable the Listen button.
+    @Published var isDangerousLoopback: Bool = false
+
+    /// User settings (persisted via Combine observers; see
+    /// `setupSettingObservers`). See SettingsView.
+    @Published var autoListenEnabled: Bool = false
+    /// Auto-resume after an interruption (phone call, Siri, …) ends.
+    /// Defaults to true so the "set and forget" appliance feel survives
+    /// a phone call — the user was listening before, so they almost
+    /// certainly want to be listening after.
+    @Published var autoResumeEnabled: Bool = true
+    @Published var monitorVolume: Float = 1.0
+
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
@@ -144,6 +167,16 @@ final class AudioEngineManager: ObservableObject {
         lastExternalInputName = UserDefaults.standard.string(forKey: lastExternalInputNameKey)
         lastExternalOutputID = UserDefaults.standard.string(forKey: lastExternalOutputIDKey)
         lastExternalOutputName = UserDefaults.standard.string(forKey: lastExternalOutputNameKey)
+        autoListenEnabled = UserDefaults.standard.bool(forKey: autoListenEnabledKey)
+        // bool(forKey:) returns false for a missing key, but we want
+        // auto-resume ON by default — so use object(forKey:) and fall
+        // back to true.
+        autoResumeEnabled = (UserDefaults.standard.object(forKey: autoResumeEnabledKey) as? Bool) ?? true
+        if let storedVolume = UserDefaults.standard.object(forKey: monitorVolumeKey) as? Float {
+            monitorVolume = min(max(storedVolume, 0), 1)
+        } else {
+            monitorVolume = 1.0
+        }
         checkMicrophonePermission()
         setupNotifications()
 
@@ -161,6 +194,7 @@ final class AudioEngineManager: ObservableObject {
             primeSessionCategoryOnly()
         }
 
+        setupSettingObservers()
         _ = try? applyPreferredInputIfNeeded()
         lastRouteSignature = currentRouteSignature()
         updateAudioRoutes()
@@ -211,6 +245,41 @@ final class AudioEngineManager: ObservableObject {
         NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.handleDidBecomeActive() }
+            .store(in: &cancellables)
+    }
+
+    /// Persist the user settings and react to changes (auto-listen starts
+    /// when toggled on if a usable route is already available). `dropFirst`
+    /// skips the initial current-value emission Combine sends on subscribe,
+    /// so loading persisted values in `init` does not trigger side effects.
+    private func setupSettingObservers() {
+        $autoResumeEnabled
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                guard let self else { return }
+                UserDefaults.standard.set(value, forKey: self.autoResumeEnabledKey)
+            }
+            .store(in: &cancellables)
+
+        $autoListenEnabled
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                guard let self else { return }
+                UserDefaults.standard.set(value, forKey: self.autoListenEnabledKey)
+                self.evaluateAutoListen()
+            }
+            .store(in: &cancellables)
+
+        $monitorVolume
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                guard let self else { return }
+                UserDefaults.standard.set(value, forKey: self.monitorVolumeKey)
+                self.applyMonitorVolume()
+            }
             .store(in: &cancellables)
     }
 
@@ -317,6 +386,40 @@ final class AudioEngineManager: ObservableObject {
         // preserves the user's route-picker output choice.
     }
 
+    // MARK: - Monitor volume
+
+    /// Applies `monitorVolume` to the live mixer. Zero added latency: the
+    /// mixer already exists in the graph, so `outputVolume` is a scalar
+    /// gain applied in the mixer's render — no limiter or effect node is
+    /// inserted into the chain, preserving Live Listen latency parity.
+    /// See docs/ROADMAP.md.
+    private func applyMonitorVolume() {
+        audioEngine?.mainMixerNode.outputVolume = monitorVolume
+    }
+
+    // MARK: - Auto-listen
+
+    /// If auto-listen is on, start listening when a usable, non-feedback
+    /// route is available. Stops are already handled by the existing
+    /// route-change / missing-input policy, so this only needs to ADD
+    /// starts when conditions become true.
+    ///
+    /// Honest limitation: this fires from route-change, foreground, and
+    /// enumeration-poll callbacks. If the app is suspended in the
+    /// background (no audio producing), iOS may not deliver a plug-in
+    /// notification, so cold background auto-start is not guaranteed.
+    func evaluateAutoListen() {
+        guard autoListenEnabled, !isRunning else { return }
+        guard microphonePermissionStatus == .authorized else { return }
+        guard !selectedInputIsMissing, !isDangerousLoopback else { return }
+        // Only auto-start when routing to an external (non-built-in)
+        // output — headphones / Bluetooth / USB — never the iPhone speaker.
+        let route = AVAudioSession.sharedInstance().currentRoute
+        guard let output = route.outputs.first,
+              output.portType != .builtInSpeaker else { return }
+        beginListening()
+    }
+
     // MARK: - Engine lifecycle (no session touch!)
 
     /// Teardown + rebuild + start the AVAudioEngine against the CURRENT
@@ -365,6 +468,7 @@ final class AudioEngineManager: ObservableObject {
                           userInfo: [NSLocalizedDescriptionKey: "Invalid audio input format."])
         }
         engine.connect(inputNode, to: engine.mainMixerNode, format: format)
+        engine.mainMixerNode.outputVolume = monitorVolume
         self.audioEngine = engine
     }
 
@@ -544,6 +648,13 @@ final class AudioEngineManager: ObservableObject {
                 if self.isRunning { self.rebuildEngineOnly() }
             }
 
+            // Auto-listen: a late-enumerating USB mic (or a route that
+            // settled while we were backgrounded) can make the route
+            // usable now.
+            if self.autoListenEnabled, !self.isRunning {
+                self.evaluateAutoListen()
+            }
+
             if ticks >= Self.enumerationPollMaxTicks {
                 timer.invalidate()
                 self.enumerationPollTimer = nil
@@ -596,7 +707,7 @@ final class AudioEngineManager: ObservableObject {
                 // iOS auto-fell-back to iPhone mic. Was our remembered
                 // external a real device that's now unreachable?
                 if let lastID = lastExternalInputID,
-                   !inputs.contains(where: { $0.id == lastID }) {
+                   !inputs.contains(where: { $0.uid == lastID }) {
                     selectedInputIsMissing = true
                     currentInputName = "\(lastExternalInputName ?? "External microphone") — missing"
                 } else {
@@ -621,7 +732,10 @@ final class AudioEngineManager: ObservableObject {
         // when they go away. We mirror the user's most recent
         // non-built-in output so we can flag it as missing instead of
         // silently accepting the fallback.
-        let availableOutputs = session.availableOutputs ?? []
+        // AVAudioSession has no `availableOutputs` API; use the currently
+        // routed outputs. In this branch the route is the built-in speaker,
+        // so a remembered external that isn't routed reads as missing.
+        let availableOutputs = session.currentRoute.outputs
         if let currentOutput = session.currentRoute.outputs.first {
             if currentOutput.portType == .builtInSpeaker {
                 if let lastID = lastExternalOutputID,
@@ -650,6 +764,13 @@ final class AudioEngineManager: ObservableObject {
             outputMayCauseFeedback = false
             outputIsMissing = false
         }
+
+        // Same-device loopback (iPhone mic → iPhone speaker) is the
+        // feedback-prone default nobody wants. Surfaced to the view so the
+        // Listen button can be disabled until headphones are connected.
+        let currentRoute = session.currentRoute
+        isDangerousLoopback = currentRoute.inputs.first?.portType == .builtInMic
+            && currentRoute.outputs.first?.portType == .builtInSpeaker
     }
 
     private func saveLastExternalInput(id: String, name: String) {
@@ -724,6 +845,15 @@ final class AudioEngineManager: ObservableObject {
         let pinned = (try? applyPreferredInputIfNeeded()) ?? false
         updateAudioRoutes()
 
+        // Auto-listen: if enabled and a usable route is now available,
+        // start. This is the response to the route change, so return
+        // after starting to avoid the "signature changed → stop" logic
+        // below treating the same change as a reason to stop.
+        if autoListenEnabled, !isRunning {
+            evaluateAutoListen()
+            if isRunning { return }
+        }
+
         guard isRunning else { return }
 
         if selectedInputIsMissing {
@@ -768,13 +898,28 @@ final class AudioEngineManager: ObservableObject {
         switch type {
         case .began:
             sessionIsActive = false
+            // Remember whether we were live so we can resume after the
+            // call / Siri / other-audio interruption ends.
+            wasRunningBeforeInterruption = isRunning
             if isRunning {
-                stopListening(withMessage: "Audio interrupted. Tap LISTEN when ready.")
+                stopListening(withMessage: "Audio interrupted.")
             }
         case .ended:
-            // Never auto-resume; next LISTEN reactivates.
             sessionIsActive = false
             updateAudioRoutes()
+            // Auto-resume: if the user was listening before the
+            // interruption AND has opted in, spin the engine back up.
+            // Guard against the feedback-prone route: if the headphones
+            // came off during the call, the route is now the iPhone
+            // speaker and resuming would screech. Same guard as
+            // `evaluateAutoListen`.
+            if autoResumeEnabled, wasRunningBeforeInterruption, !isRunning {
+                if !isDangerousLoopback, !selectedInputIsMissing {
+                    try? ensureSessionConfigured()
+                    beginListening()
+                }
+            }
+            wasRunningBeforeInterruption = false
         @unknown default:
             break
         }
@@ -799,6 +944,7 @@ final class AudioEngineManager: ObservableObject {
             startEnumerationPolling()
         }
         updateAudioRoutes()
+        evaluateAutoListen()
     }
 
     // MARK: - Stopping
