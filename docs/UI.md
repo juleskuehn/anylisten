@@ -190,9 +190,11 @@ English-only too — see [`APP_STORE.md`](APP_STORE.md)). Shipping a new
 language is now a data-only change: add it to the catalogs in Xcode.
 
 One deliberate localization choice: device names from `AVAudioSession`
-(e.g. "Jules's AirPods") are passed through verbatim, and composite
-sentences ("Selected input was disconnected.") are whole-sentence keys
-rather than interpolated fragments.
+(e.g. "Jules's AirPods") are passed through verbatim — the single
+exception is the built-in mic, which is mapped to "Built-in Microphone"
+because the simulator reports the raw stub token "MicrophoneBuiltIn" —
+and composite sentences ("Selected input was disconnected.") are
+whole-sentence keys rather than interpolated fragments.
 
 ## Why no SwiftUI-only audio devices API?
 

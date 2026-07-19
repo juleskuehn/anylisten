@@ -117,10 +117,11 @@ registered trademark.
 - [ ] Support URL: `docs/support.html` →
       `https://juleskuehn.github.io/anylisten/support.html` (Guideline 1.5:
       must offer a way to contact the developer).
-- [ ] Screenshots: recapture at the **required** slot sizes — 6.9″
-      iPhone (1320×2868) and 13″ iPad (2064×2732, required because the
-      app declares iPad support). The current 1170×2532 captures only
-      fit optional slots.
+- [x] Screenshots: captured at the **required** slot sizes via simulator
+      — 6.9″ iPhone (1320×2868) and 13″ iPad (2064×2752) — in
+      [`../screenshots/appstore/`](../screenshots/appstore/) (three states
+      per device: main, mic-permission card, Settings). Upload those per
+      slot; replace with on-device captures later if desired.
 - [ ] Screenshots and description: no medical claims (see list above).
 - [x] Localization readiness: all app strings live in
       `Localizable.xcstrings` / `InfoPlist.xcstrings` (REVIEW L1

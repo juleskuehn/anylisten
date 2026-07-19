@@ -181,6 +181,16 @@
         }
       }
     },
+    "Built-in Microphone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Built-in Microphone"
+          }
+        }
+      }
+    },
     "Change" : {
       "localizations" : {
         "en" : {

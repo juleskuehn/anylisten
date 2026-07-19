@@ -709,7 +709,7 @@ final class AudioEngineManager: ObservableObject {
         let session = AVAudioSession.sharedInstance()
         let inputs = session.availableInputs ?? []
         availableInputs = inputs.map {
-            AudioInputDevice(id: $0.uid, name: $0.portName, typeName: Self.readableInputType($0.portType))
+            AudioInputDevice(id: $0.uid, name: Self.inputDisplayName(for: $0), typeName: Self.readableInputType($0.portType))
         }
 
         // -- INPUT ----------------------------------------------------------
@@ -744,7 +744,7 @@ final class AudioEngineManager: ObservableObject {
                     currentInputName = Self.missingDisplayName(lastExternalInputName ?? String(localized: "External microphone"))
                 } else {
                     selectedInputIsMissing = false
-                    currentInputName = current.portName
+                    currentInputName = Self.inputDisplayName(for: current)
                 }
             }
         } else if let best = Self.bestAutomaticInput(from: inputs) {
@@ -752,7 +752,7 @@ final class AudioEngineManager: ObservableObject {
                 saveLastExternalInput(id: best.uid, name: best.portName)
             }
             selectedInputIsMissing = false
-            currentInputName = best.portName
+            currentInputName = Self.inputDisplayName(for: best)
         } else {
             currentInputName = String(localized: "No input available")
             selectedInputIsMissing = false
@@ -857,6 +857,15 @@ final class AudioEngineManager: ObservableObject {
         selectedInputMissing
             ? String(localized: "Selected input was disconnected.")
             : String(localized: "Selected output was disconnected.")
+    }
+
+    /// Display name for an input port. Real devices report the built-in
+    /// mic with a friendly localized name ("iPhone Microphone"), but the
+    /// simulator's stub portName is the raw token "MicrophoneBuiltIn" —
+    /// map the built-in mic to a friendly name everywhere.
+    private static func inputDisplayName(for port: AVAudioSessionPortDescription) -> String {
+        if port.portType == .builtInMic { return String(localized: "Built-in Microphone") }
+        return port.portName
     }
 
     private static func readableInputType(_ portType: AVAudioSession.Port) -> String {
