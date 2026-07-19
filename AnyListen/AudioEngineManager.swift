@@ -833,11 +833,12 @@ final class AudioEngineManager: ObservableObject {
         if isApplyingAudioSessionChange { return }
 
         if let until = silenceRouteChangesUntil, Date() < until {
-            // Silenced — but a yanked selected input still stops us, and
+            // Silenced — but a yanked selected input or output still stops us, and
             // an automatic input upgrade still earns an engine rebuild.
             let pinned = (try? applyPreferredInputIfNeeded()) ?? false
-            if isRunning && selectedInputIsMissing {
-                stopListening(withMessage: "Selected input was disconnected.")
+            if isRunning && (selectedInputIsMissing || outputIsMissing) {
+                let deviceType = selectedInputIsMissing ? "input" : "output"
+                stopListening(withMessage: "Selected \(deviceType) was disconnected.")
                 return
             }
             if isRunning && pinned {
@@ -863,8 +864,9 @@ final class AudioEngineManager: ObservableObject {
 
         guard isRunning else { return }
 
-        if selectedInputIsMissing {
-            stopListening(withMessage: "Selected input was disconnected.")
+        if selectedInputIsMissing || outputIsMissing {
+            let deviceType = selectedInputIsMissing ? "input" : "output"
+            stopListening(withMessage: "Selected \(deviceType) was disconnected.")
             return
         }
 

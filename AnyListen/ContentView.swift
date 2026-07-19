@@ -81,7 +81,7 @@ struct ContentView: View {
                 title: "Microphone",
                 value: audioManager.currentInputName,
                 icon: "mic.fill",
-                isWarning: false
+                isWarning: audioManager.selectedInputIsMissing
             ) {
                 inputMenu
             }
@@ -103,7 +103,7 @@ struct ContentView: View {
                 title: "Speaker or Headphones",
                 value: outputValueText,
                 icon: "speaker.wave.2.fill",
-                isWarning: false
+                isWarning: audioManager.outputIsMissing || audioManager.isDangerousLoopback
             ) {
                 AudioRoutePicker()
                     .frame(width: 52, height: 44)
@@ -156,6 +156,11 @@ struct ContentView: View {
         !audioManager.isRunning && audioManager.selectedInputIsMissing
     }
 
+    /// True when the selected speaker/headphones are missing.
+    private var outputMissing: Bool {
+        !audioManager.isRunning && audioManager.outputIsMissing
+    }
+
     /// True when the only available path is iPhone mic → iPhone speaker
     /// AND the user has not opted into same-device loopback. This is the
     /// feedback-prone default that nobody wants; the button is disabled
@@ -164,10 +169,14 @@ struct ContentView: View {
         !audioManager.isRunning && audioManager.isDangerousLoopback
     }
 
-    /// True when the LISTEN control is unavailable (missing mic, or
+    /// True when the LISTEN control is unavailable (missing mic, missing output, or
     /// dangerous same-device loopback that hasn't been opted into).
     private var isButtonDisabled: Bool {
-        !audioManager.isRunning && (audioManager.selectedInputIsMissing || isDangerousBlocked)
+        !audioManager.isRunning && (
+            audioManager.selectedInputIsMissing ||
+            audioManager.outputIsMissing ||
+            isDangerousBlocked
+        )
     }
 
     private var listeningStateText: String {
@@ -244,7 +253,9 @@ struct ContentView: View {
 
     private var buttonLabelText: String {
         if isDangerousBlocked { return "Headphones required" }
+        if inputMissing && outputMissing { return "Headphones and microphone required" }
         if inputMissing { return "Microphone required" }
+        if outputMissing { return "Headphones required" }
         return audioManager.isRunning ? "Stop Listening" : "Start Listening"
     }
 
