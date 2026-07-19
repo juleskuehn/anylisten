@@ -20,16 +20,17 @@ struct ContentView: View {
             // ScrollView so the layout gracefully handles larger Dynamic Type
             // sizes (senior-friendly) without pushing the listen button off-screen.
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
                     headerTitle
-                        .padding(.top, 8)
+                        .padding(.top, 16)
+                        .padding(.bottom, 6)
 
                     microphoneCard
                     speakerCard
                     listeningCard
                 }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 16)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 24)
                 .frame(maxWidth: .infinity)
             }
         }
@@ -50,15 +51,23 @@ struct ContentView: View {
     private var headerTitle: some View {
         HStack {
             Text("AnyListen")
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.white.opacity(0.95))
+                .padding(.leading, 8)
             Spacer()
+            // Settings button: a full 44×44 touch target (HIG / WCAG
+            // minimum), no decorative backdrop — just the glyph, made
+            // slightly larger so it carries its own visual weight. The
+            // larger spacing above and below gives clear separation from
+            // the "Change" button on the microphone card.
             Button {
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape.fill")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundColor(.white.opacity(0.6))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("Settings")
         }
@@ -72,20 +81,13 @@ struct ContentView: View {
                 title: "Microphone",
                 value: audioManager.currentInputName,
                 icon: "mic.fill",
-                isWarning: audioManager.selectedInputIsMissing
+                isWarning: false
             ) {
                 inputMenu
             }
-
-            // Contextual warning lives inside the microphone card, since it
-            // is exclusively about a missing microphone.
-            if audioManager.selectedInputIsMissing {
-                warningText("Selected microphone is missing. Reconnect it or choose another input.")
-            }
         }
         .padding(14)
-        .cardStyle(borderColor: cardBorderColor(forWarning: audioManager.selectedInputIsMissing))
-        .animation(.easeInOut(duration: 0.25), value: audioManager.selectedInputIsMissing)
+        .cardStyle(borderColor: Color.white.opacity(0.10))
     }
 
     private var outputValueText: String {
@@ -101,12 +103,7 @@ struct ContentView: View {
                 title: "Speaker or Headphones",
                 value: outputValueText,
                 icon: "speaker.wave.2.fill",
-                // Tint orange when the output is genuinely missing OR in
-                // the blocked dangerous feedback state (iPhone mic →
-                // iPhone speaker). Same-device routing is permanently
-                // disabled, so this row itself is the call-to-action:
-                // "Connect headphones".
-                isWarning: audioManager.outputIsMissing || audioManager.isDangerousLoopback
+                isWarning: false
             ) {
                 AudioRoutePicker()
                     .frame(width: 52, height: 44)
@@ -114,17 +111,9 @@ struct ContentView: View {
                     .cornerRadius(12)
                     .accessibilityLabel("Select output")
             }
-
-            if audioManager.outputIsMissing {
-                warningText("Selected speaker is missing. Reconnect it or choose a different output.")
-            }
         }
         .padding(14)
-        .cardStyle(borderColor: cardBorderColor(
-            forWarning: audioManager.outputIsMissing || audioManager.isDangerousLoopback
-        ))
-        .animation(.easeInOut(duration: 0.25), value: audioManager.outputIsMissing)
-        .animation(.easeInOut(duration: 0.25), value: audioManager.isDangerousLoopback)
+        .cardStyle(borderColor: Color.white.opacity(0.10))
     }
 
     private var listeningCard: some View {
@@ -153,18 +142,10 @@ struct ContentView: View {
             .frame(minHeight: 54)
 
             listenButton
-
-            // Operational / engine errors (route changed, interrupted,
-            // system reset, etc.) land here — errors that don't belong to
-            // either the input or output card individually.
-            if let errorMessage = audioManager.errorMessage {
-                warningText(errorMessage)
-            }
         }
         .padding(14)
         .cardStyle(borderColor: listeningCardBorderColor)
         .animation(.easeInOut(duration: 0.25), value: audioManager.isRunning)
-        .animation(.easeInOut(duration: 0.25), value: audioManager.errorMessage)
         .animation(.easeInOut(duration: 0.25), value: audioManager.isDangerousLoopback)
     }
 
@@ -201,12 +182,10 @@ struct ContentView: View {
         return audioManager.isRunning ? .green : .cyan
     }
 
-    /// Listening card border: green when actively listening, orange when
-    /// there is a contextual operational error, otherwise the standard
+    /// Listening card border: green when actively listening, otherwise the standard
     /// subtle white.
     private var listeningCardBorderColor: Color {
         if audioManager.isRunning { return Color.green.opacity(0.45) }
-        if audioManager.errorMessage != nil { return Color.orange.opacity(0.45) }
         return Color.white.opacity(0.10)
     }
 
@@ -443,7 +422,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Phone Calls")
                 } footer: {
-                    Text("When a phone call or other interruption ends, the app will automatically start listening again if it was running before.")
+                    Text("When a phone call or other interruption ends, the app will automatically start listening again.")
                 }
             }
             .navigationTitle("Settings")

@@ -156,6 +156,7 @@ final class AudioEngineManager: ObservableObject {
     @Published var autoResumeEnabled: Bool = true
     @Published var monitorVolume: Float = 1.0
 
+    private var hasManuallyStopped: Bool = false
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
@@ -268,6 +269,9 @@ final class AudioEngineManager: ObservableObject {
             .sink { [weak self] value in
                 guard let self else { return }
                 UserDefaults.standard.set(value, forKey: self.autoListenEnabledKey)
+                if value {
+                    self.hasManuallyStopped = false
+                }
                 self.evaluateAutoListen()
             }
             .store(in: &cancellables)
@@ -290,6 +294,7 @@ final class AudioEngineManager: ObservableObject {
     }
 
     func beginListening() {
+        hasManuallyStopped = false
         if microphonePermissionStatus == .authorized {
             start()
         } else {
@@ -378,6 +383,7 @@ final class AudioEngineManager: ObservableObject {
 
     func stop() {
         guard isRunning else { return }
+        hasManuallyStopped = true
         teardownEngine()
         isRunning = false
         errorMessage = nil
@@ -410,6 +416,7 @@ final class AudioEngineManager: ObservableObject {
     /// notification, so cold background auto-start is not guaranteed.
     func evaluateAutoListen() {
         guard autoListenEnabled, !isRunning else { return }
+        guard !hasManuallyStopped else { return }
         guard microphonePermissionStatus == .authorized else { return }
         guard !selectedInputIsMissing, !isDangerousLoopback else { return }
         // Only auto-start when routing to an external (non-built-in)
