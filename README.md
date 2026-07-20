@@ -55,8 +55,15 @@ output you choose.
 |---|---|---|
 | <img src="screenshots/readme/IMG_5691.png" width="220"> | <img src="screenshots/readme/IMG_5683.png" width="220"> | <img src="screenshots/readme/IMG_5690.png" width="220"> |
 
-Full-resolution captures (1170 × 2532) live in [`screenshots/`](screenshots/);
+Display-size captures (1170 × 2532) live in [`screenshots/readme/`](screenshots/readme);
 `iphone-frame.png` is the mockup frame used for the hero image above.
+
+> **These on-device captures are stale** — they predate the adaptive
+> card-layout refactor (titles now span full width, sentence-case card
+> titles, "Built-in mic"). They're kept because they show states that
+> can't be reproduced on the simulator (input menu open, route picker
+> open, a real disconnected USB mic). Re-capture them on a device with
+> the current build and replace the files in [`screenshots/readme/`](screenshots/readme).
 
 ## High-level architecture
 

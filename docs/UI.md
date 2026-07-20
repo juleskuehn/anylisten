@@ -37,7 +37,7 @@ At extreme Dynamic Type sizes the row's control (Change button, route
 picker) drops to a full-width bar below the row via `ViewThatFits`, so
 no control text ever wraps mid-word.
 
-A fourth, conditional card — **Microphone Access** — appears *above* the
+A fourth, conditional card — **Microphone access** — appears *above* the
 microphone card when (and only when) mic permission is `.denied` or
 `.restricted`: orange `mic.slash` icon, an explanation, and a full-width
 "Open Settings" button (`UIApplication.openSettingsURLString`). The
@@ -69,9 +69,9 @@ use `fixedSize(vertical:)` to wrap instead of truncating, and the
 
 | Subview | Role |
 |---------|------|
-| `microphoneCard` | The MICROPHONE panel. Hosts the input menu; value text goes orange with a "— missing" suffix when the selected mic is gone. |
-| `speakerCard` | The SPEAKER OR HEADPHONES panel. Hosts `AudioRoutePicker` (via `outputPickerControl`, 52×44 compact / full-width expanded); shows "Connect headphones" in orange whenever the speaker is routed (blocked), or "X — missing" when the external output was observed going away. |
-| `listeningCard` | The LISTENING CONTROL panel. Hosts the listen button and state label; border turns green while running. |
+| `microphoneCard` | The Microphone panel. Hosts the input menu; value text goes orange with a "— missing" suffix when the selected mic is gone. |
+| `speakerCard` | The Speaker or headphones panel. Hosts `AudioRoutePicker` (via `outputPickerControl`, 52×44 compact / full-width expanded); shows "Connect headphones" in orange whenever the speaker is routed (blocked), or "X — missing" when the external output was observed going away. |
+| `listeningCard` | The Listening control panel. Hosts the listen button and state label; border turns green while running. |
 | `routeRow(...)` | Helper builder. Renders the muted full-width title, then a `ViewThatFits` row: leading icon + value + trailing control, falling back to the control on a full-width line below at extreme text sizes. The control closure receives `expanded: Bool`. Marks warning state with orange. |
 | `inputMenu(expanded:)` | SwiftUI `Menu` containing "Automatic" + every device in `availableInputs`, marked with check when current. Compact: 118pt pill with "Change ⌄"; expanded: full-width bar. |
 | `listenButton` | The big circular 132 × 132 button. If running → `stop()`; else `beginListening()`. Disabled (`isButtonDisabled`) when the selected input is missing, the output is missing, the route is the same-device loopback, or mic permission is denied — with the reason shown as the label. |
@@ -197,7 +197,7 @@ language is now a data-only change: add it to the catalogs in Xcode.
 
 One deliberate localization choice: device names from `AVAudioSession`
 (e.g. "Jules's AirPods") are passed through verbatim — the single
-exception is the built-in mic, which is mapped to "Built-in Microphone"
+exception is the built-in mic, which is mapped to "Built-in mic"
 because the simulator reports the raw stub token "MicrophoneBuiltIn" —
 and composite sentences ("Selected input was disconnected.") are
 whole-sentence keys rather than interpolated fragments.

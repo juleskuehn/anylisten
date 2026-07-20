@@ -31,9 +31,9 @@ Three Swift files, three responsibilities:
 | File | Responsibility |
 |------|----------------|
 | `AnyListenApp.swift` | Entry point. Creates a single `WindowGroup` whose root is `ContentView`. Nothing else. |
-| `ContentView.swift` | All user-facing UI. Owns the single `AudioEngineManager` via `@StateObject` and reads its `@Published` state to render. Owns one piece of *view-local* state — the speaker-feedback alert. |
+| `ContentView.swift` | All user-facing UI. Owns the single `AudioEngineManager` via `@StateObject` and reads its `@Published` state to render. Owns one piece of *view-local* state — `showSettings`, which presents the Settings sheet. |
 | `AudioEngineManager.swift` | All audio logic. The `AVAudioEngine`, the `AVAudioSession` config, route-change listening, permission, persistence. Publishes state for the view layer. |
-| `AudioRoutePicker.swift` | Thin SwiftUI bridge around `AVRoutePickerView`. Stretches Apple's internal button to fill its parent frame so it sits cleanly inside our rounded "Speaker or Headphones" tile. |
+| `AudioRoutePicker.swift` | Thin SwiftUI bridge around `AVRoutePickerView`. Stretches Apple's internal button to fill its parent frame so it sits cleanly inside our rounded "Speaker or headphones" tile. |
 
 There is no separate `ViewModel` layer — `AudioEngineManager` plays that
 role. This is a deliberate, idiomatic-SwiftUI trade-off for a single-screen

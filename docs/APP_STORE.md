@@ -110,11 +110,11 @@ registered trademark.
       reviewer on a stock device sees a disabled Listen button without
       headphones): record ~30 s of AirPods connecting → Start Listening
       → live pass-through, and link it in the review notes.
-- [ ] Privacy policy URL: `docs/privacy.html` in this repo, served via
+- [x] Privacy policy URL: `docs/privacy.html` in this repo, served via
       GitHub Pages at `https://juleskuehn.github.io/anylisten/privacy.html`
-      (enable: repo Settings → Pages → deploy from branch → main → /docs).
+      (enabled: repo Settings → Pages → deploy from branch → main → /docs).
       The same URL is linked in-app from the Settings sheet.
-- [ ] Support URL: `docs/support.html` →
+- [x] Support URL: `docs/support.html` →
       `https://juleskuehn.github.io/anylisten/support.html` (Guideline 1.5:
       must offer a way to contact the developer).
 - [x] Screenshots: captured at the **required** slot sizes via simulator
