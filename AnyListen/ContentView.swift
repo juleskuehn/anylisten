@@ -543,7 +543,7 @@ struct SettingsView: View {
                     Toggle("Start listening automatically", isOn: $audioManager.autoListenEnabled)
                         .tint(.green)
                 } header: {
-                    Text("Automatic Start")
+                    Text("Automatic start")
                 } footer: {
                     Text("When your microphone and headphones are both connected, the app will start listening automatically. In some cases, you might need to open the app again.")
                 }
@@ -552,14 +552,14 @@ struct SettingsView: View {
                     Toggle("Resume after phone calls", isOn: $audioManager.autoResumeEnabled)
                         .tint(.green)
                 } header: {
-                    Text("Phone Calls")
+                    Text("Phone calls")
                 } footer: {
                     Text("When a phone call or other interruption ends, the app will automatically start listening again.")
                 }
 
                 Section {
                     Link(destination: Self.privacyPolicyURL) {
-                        Text("Privacy Policy")
+                        Text("Privacy policy")
                     }
                 } header: {
                     Text("About")

@@ -151,12 +151,12 @@
         }
       }
     },
-    "Automatic Start": {
+    "Automatic start": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatic Start"
+            "value": "Automatic start"
           }
         }
       }
@@ -522,22 +522,22 @@
         }
       }
     },
-    "Phone Calls": {
+    "Phone calls": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Phone Calls"
+            "value": "Phone calls"
           }
         }
       }
     },
-    "Privacy Policy": {
+    "Privacy policy": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Privacy Policy"
+            "value": "Privacy policy"
           }
         }
       }
